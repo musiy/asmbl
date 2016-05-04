@@ -1,4 +1,4 @@
-UNPACK_DIR_PATH = r'E:\RomanMusiy\Assembly1C\out\unpack'
+UNPACK_DIR_PATH = r'unpack'
 COMMON_MODULE_ID = "0fe48980-252d-11d6-a3c7-0050bae0a776"
 
 def process1cTree(str, list, *, pos = 1):
@@ -30,17 +30,36 @@ def process1cTree(str, list, *, pos = 1):
 def loadDataFile(fileName):
     return open(UNPACK_DIR_PATH + "\\" + fileName, encoding='utf-8').read().replace('\n', '')
 
+def loadTextFile(fileName):
+    return open(UNPACK_DIR_PATH + "\\" + fileName, encoding='utf-8').read()
+
+def getModulesIds(confData):
+    pos = confData.find(COMMON_MODULE_ID)
+    if pos == -1:
+        raise Exception("В файле описания структуры метаданных не найдены идентификатор блока общих модулей")
+    commonModulesList = []
+    process1cTree(confData, commonModulesList, pos=(pos - 1))
+    return commonModulesList[2:]
+
+def getModules(ids):
+    modules = {} # содержит текст общих модулей, ключ - имя общего модуля, значение - текст модуля
+    for id in ids:
+        moduleDescList = []
+        process1cTree(loadDataFile(id), moduleDescList)
+        # получаем "чистое" имя модуля, например: "iBank2_ЗарплатныйПроектКлиент"
+        moduleName = moduleDescList[1][1][2]
+        # обрезаем кавычки слева и справа, теперь это: iBank2_ЗарплатныйПроектКлиент
+        moduleName = moduleName[1:-1]
+        # загружаем текст модуля
+        modules[moduleName] = loadTextFile(id+".0\\text")
+    return modules
+
+
 # Файл root содержит идентификатор файла с описанием конфигурации
 rootList = []
 process1cTree(loadDataFile("root"), rootList)
-
-# Считывание файла с конфигурацией
+# rootList[1] - идентификатор файла с описанием конфигурации
 confData = loadDataFile(rootList[1])
-pos = confData.find(COMMON_MODULE_ID)
-if pos == -1:
-    raise Exception("В файле описания структуры метаданных не найдены идентификатор блока общих модулей")
-commonModulesList = []
-process1cTree(confData, commonModulesList, pos = (pos - 1))
 
-for moduleId in commonModulesList[2:]:
-    print(moduleId)
+modulesIds = getModulesIds(confData)
+modules = getModules(modulesIds)
