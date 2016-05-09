@@ -1,50 +1,62 @@
 # ------------------------------------------------------------
-# calclex.py
+# lexer1c.py
 #
-# tokenizer for a simple expression evaluator for
-# numbers and +,-,*,/
+# tokenizer for a 1C:Eterprise embedded language "1C"
 # ------------------------------------------------------------
 import ply.lex as lex
 
 # reserved words
 
 reserved = {
-    '#если' :    'DEF_IF',
-    '#тогда':    'DEF_THEN',
-    '#иначе':    'DEF_ELSE',
-    '#конецесли':'DEF_ENDIF',
-    'если' :     'IF',
-    'тогда':     'THEN',
-    'иначе':     'ELSE',
-    'конецесли': 'ENDIF',
-    'для':       'FOR',
-    'по':        'TO',
-    'пока':      'WHILE',
-    'цикл':      'DO',
-    'конеццикла':'ENDDO'
+    '#если'         : 'DEF_IF',
+    '#тогда'        : 'DEF_THEN',
+    '#иначе'        : 'DEF_ELSE',
+    '#конецесли'    : 'DEF_ENDIF',
+    'если'          : 'IF',
+    'тогда'         : 'THEN',
+    'иначе'         : 'ELSE',
+    'конецесли'     : 'ENDIF',
+    'для'           : 'FOR',
+    'по'            : 'TO',
+    'пока'          : 'WHILE',
+    'цикл'          : 'DO',
+    'конеццикла'    : 'ENDDO',
+    'функция'       : 'FUNCTION',
+    'конецфункции'  : 'ENDFUNCTION',
+    'процедура'     : 'PROCEDURE',
+    'конецпроцедуры': 'ENDPROCEDURE',
+    'неопределено'  : 'UNDEFINED',
+    'перем'         : 'PEREM',
+    'экспорт'       : 'EXPORT'
 }
 
-# List of token names.   This is always required
+# List of token names. This is always required.
 tokens = [
    'STRING',
    'NUMBER',
-   'LSB',
-   'RSB',
-   'AMRSND',
-   'EQ',
-   'PLUS',
-   'MINUS',
-   'TIMES',
-   'DIVIDE',
-   'COMA',
-   'SEMICOLON',
-   'DOT',
-   'LPAREN',
-   'RPAREN',
-   'ID'] + list(reserved.values())
+
+   'LSB',       # [
+   'RSB',       # ]
+   'AMRSND',    # &
+   'EQ',        # =
+   'PLUS',      # +
+   'MINUS',     # -
+   'TIMES',     # *
+   'DIVIDE',    # /
+   'COMMA',     # ,
+   'SEMICOLON', # ;
+   'DOT',       # .
+   'LPAREN',    # (
+   'RPAREN',    # )
+
+   'ID', 
+   'PREPROCID',
+   'COMMENT',
+   'DIRECTIVE'] + list(reserved.values())
 
 # Regular expression rules for simple tokens
-t_STRING    = r'["].*["]'
+t_STRING    = r'"(?:[^"]|"")*"'
+t_DIRECTIVE = r'&[a-zA-Zа-яА-Я]*'
 t_LSB       = r'\['
 t_RSB       = r'\]'
 t_AMRSND    = r'\&'
@@ -53,11 +65,18 @@ t_PLUS      = r'\+'
 t_MINUS     = r'-'
 t_TIMES     = r'\*'
 t_DIVIDE    = r'/'
-t_COMA      = r','
+t_COMMA     = r','
 t_SEMICOLON = r';'
 t_DOT       = r'\.'
 t_LPAREN    = r'\('
 t_RPAREN    = r'\)'
+t_COMMENT   = r'\/\/.*\n'
+
+# preprocessor instructions
+def t_PREPROCID(t):
+    r'\#[a-zA-Zа-яА-Я_][a-zA-Zа-яА-Я_0-9]*'
+    t.type = reserved.get(t.value.lower(), 'unknown preprocessor instruction: ' + t.value)
+    return t
 
 # identificator
 def t_ID(t):
@@ -67,7 +86,7 @@ def t_ID(t):
 
 # A regular expression rule with some action code
 def t_NUMBER(t):
-    r'\d+' # function documentation string
+    r'\d+'
     t.value = int(t.value)    
     return t
 
@@ -77,39 +96,18 @@ def t_newline(t):
     t.lexer.lineno += len(t.value)
 
 # A string containing ignored characters (spaces and tabs)
-t_ignore  = ' \t'
+t_ignore  = ' \t\ufeff'
 
 # Error handling rule
 def t_error(t):
-    print("Illegal character '%s'" % t.value[0])
+    print("== Illegal character: %s" % str(t))
     t.lexer.skip(1)
 
 # Build the lexer
 lexer = lex.lex()
 
-data = """
-&НаКлиенте
-Функция ПростоТак(Знач Перем1 = "", Перем2 = Неопределено)
-    Если 1 = 1 Тогда
-        перем_1 = (3 + 5) * 7 - 9;
-        #Если ВебКлиент Тогда
-            перем_3 = ОбщийМодуль.ФункцияДелающаяЧтоТо(1, 2, 3);
-        #Иначе
-            перем_3 = НСтр("ru = 'Добрый вечер!'; en = 'Good Evening!'"));
-        #КонецЕсли
-    КонецЕсли;
-    Возврат перем_1;
-КонецФункции
-
-&НаСервере
-Процедура СервернаяПроцедура(Количество)
-    ЭтаФорма.Элементы["СтрокаПростая"] = "Виг вам";
-КонецПроцедуры
-
-"""
-print (data)
-
-lexer.input(data)
-
-for lextoken in lexer:
-    print(lextoken)
+if __name__ == '__main__':
+    data = open("samples/sample.1c", encoding='utf-8').read()
+    lexer.input(data)
+    for lextoken in lexer:
+        print(lextoken)
