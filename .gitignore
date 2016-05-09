@@ -1,0 +1,5 @@
+*.g4
+.idea
+__pycache__
+parser.out
+parsetab.py
