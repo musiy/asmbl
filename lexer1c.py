@@ -69,6 +69,7 @@ tokens = [
    'MINUS',     # -
    'TIMES',     # *
    'DIVIDE',    # /
+   'PERCENT',   # %
    'COMMA',     # ,
    'SEMI',      # ;
    'DOT',       # .
@@ -99,6 +100,7 @@ t_PLUS      = r'\+'
 t_MINUS     = r'-'
 t_TIMES     = r'\*'
 t_DIVIDE    = r'/'
+t_PERCENT   = r'%'
 t_COMMA     = r','
 t_SEMI      = r';'
 t_DOT       = r'\.'
@@ -132,8 +134,8 @@ def t_ID(t):
 
 # A regular expression rule with some action code
 def t_NUMBER(t):
-    r'\d+'
-    t.value = int(t.value)    
+    r'\d+\.\d+|\d+'
+    t.value = t.value
     return t
 
 # Define a rule so we can track line numbers
@@ -153,7 +155,7 @@ def t_error(t):
 lexer = lex.lex(reflags=re.I)
 
 if __name__ == '__main__':
-    data = open("samples/sample_1.1c", encoding='utf-8').read()
+    data = open("samples/sample.1c", encoding='utf-8').read()
     lexer.input(data)
     for lextoken in lexer:
         print(lextoken)
