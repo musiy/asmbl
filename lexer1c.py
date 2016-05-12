@@ -5,43 +5,51 @@
 # ------------------------------------------------------------
 import ply.lex as lex
 import re
+import imp
+import sys
+#imp.reload(sys)
+#sys.setdefaultencoding('utf-8')
 
 # reserved words
 reserved = {
-    '#если'         : 'DEF_IF',
-    '#тогда'        : 'DEF_THEN',
-    '#иначеесли'    : 'DEF_ELSE_IF',
-    '#иначе'        : 'DEF_ELSE',
-    '#конецесли'    : 'DEF_ENDIF',
-    '#область'      : 'AREA',
-    '#конецобласти' : 'AREA_END',
-    'если'          : 'IF',
-    'тогда'         : 'THEN',
-    'иначе'         : 'ELSE',
-    'конецесли'     : 'ENDIF',
-    'для'           : 'FOR',
-    'по'            : 'TO',
-    'из'            : 'FROM',
-    'пока'          : 'WHILE',
-    'цикл'          : 'DO',
-    'конеццикла'    : 'END_DO',
-    'продолжить'    : 'CONTINUE',
-    'прервать'      : 'BREAK',
-    'функция'       : 'FUNCTION',
-    'конецфункции'  : 'END_FUNCTION',
-    'процедура'     : 'PROCEDURE',
-    'конецпроцедуры': 'END_PROCEDURE',
-    'перейти'       : 'GOTO',
-    'неопределено'  : 'UNDEFINED',
-    'знач'          : 'VAL',
-    'перем'         : 'VAR',
-    'экспорт'       : 'EXPORT',
-    'истина'        : 'TRUE',
-    'ложь'          : 'FALSE',
-    'не'            : 'NOT',
-    'и'             : 'AND',
-    'или'           : 'OR',
-    'новый'         : 'NEW'
+    '#если'             : 'DEF_IF',
+    '#тогда'            : 'DEF_THEN',
+    '#иначеесли'        : 'DEF_ELSE_IF',
+    '#иначе'            : 'DEF_ELSE',
+    '#конецесли'        : 'DEF_ENDIF',
+    '#область'          : 'AREA',
+    '#конецобласти'     : 'AREA_END',
+    'если'              : 'IF',
+    'тогда'             : 'THEN',
+    'иначе'             : 'ELSE',
+    'конецесли'         : 'ENDIF',
+    'для'               : 'FOR',
+    'по'                : 'TO',
+    'из'                : 'FROM',
+    'пока'              : 'WHILE',
+    'цикл'              : 'DO',
+    'конеццикла'        : 'END_DO',
+    'продолжить'        : 'CONTINUE',
+    'прервать'          : 'BREAK',
+    'функция'           : 'FUNCTION',
+    'конецфункции'      : 'END_FUNCTION',
+    'процедура'         : 'PROCEDURE',
+    'конецпроцедуры'    : 'END_PROCEDURE',
+    'перейти'           : 'GOTO',
+    'неопределено'      : 'UNDEFINED',
+    'знач'              : 'VAL',
+    'перем'             : 'VAR',
+    'экспорт'           : 'EXPORT',
+    'истина'            : 'TRUE',
+    'ложь'              : 'FALSE',
+    'не'                : 'NOT',
+    'и'                 : 'AND',
+    'или'               : 'OR',
+    'новый'             : 'NEW',
+    'попытка'           : 'TRY',
+    'исключение'        : 'EXCEPTION',
+    'конецпопытки'      : 'END_TRY',
+    'вызватьисключение' : 'RAISE'
 }
 
 # List of token names. This is always required.
@@ -51,8 +59,12 @@ tokens = [
 
    'LSB',       # [
    'RSB',       # ]
+   'QSTN',      # ?
    'AMRSND',    # &
    'EQ',        # =
+   'NOTEQ',     # <>
+   'LESS',      # <
+   'MORE',      # >
    'PLUS',      # +
    'MINUS',     # -
    'TIMES',     # *
@@ -60,9 +72,9 @@ tokens = [
    'COMMA',     # ,
    'SEMI',      # ;
    'DOT',       # .
+   'COLON',     # :
    'LPAREN',    # (
    'RPAREN',    # )
-   'COLON',     # :
 
    'ID', 
    'FOR_EACH',
@@ -77,8 +89,12 @@ t_DIRECTIVE = r'&[a-zA-Zа-яА-Я]*'
 t_LABEL     = r'~[a-zA-Zа-яА-Я_][a-zA-Zа-яА-Я_0-9]*'
 t_LSB       = r'\['
 t_RSB       = r'\]'
+t_QSTN      = r'\?'
 t_AMRSND    = r'\&'
 t_EQ        = r'='
+t_NOTEQ     = r'\<\>'
+t_LESS      = r'\<'
+t_MORE      = r'\>'
 t_PLUS      = r'\+'
 t_MINUS     = r'-'
 t_TIMES     = r'\*'
@@ -110,7 +126,7 @@ def t_FOR_EACH(t):
 
 # identificator
 def t_ID(t):
-    r'[a-zA-Zа-яА-Я_][a-zA-Zа-яА-Я_0-9]*'
+    r'[a-zA-Zа-яА-Я_][a-zA-Zа-яЁёА-Я_0-9]*'
     t.type = reserved.get(t.value.lower(), 'ID')
     return t
 
