@@ -12,17 +12,18 @@ import sys
 
 # reserved words
 reserved = {
-    '#если'             : 'DEF_IF',
-    '#тогда'            : 'DEF_THEN',
-    '#иначеесли'        : 'DEF_ELSE_IF',
-    '#иначе'            : 'DEF_ELSE',
-    '#конецесли'        : 'DEF_ENDIF',
-    '#область'          : 'AREA',
-    '#конецобласти'     : 'AREA_END',
-    'если'              : 'IF',
-    'тогда'             : 'THEN',
-    'иначе'             : 'ELSE',
-    'конецесли'         : 'ENDIF',
+    # commented for debug convenience (console output overwrite)
+    #'#если'             : 'DEF_IF',
+    #'#тогда'            : 'DEF_THEN',
+    #'#иначеесли'        : 'DEF_ELSE_IF',
+    #'#иначе'            : 'DEF_ELSE',
+    #'#конецесли'        : 'DEF_ENDIF',
+    #'#область'          : 'AREA',
+    #'#конецобласти'     : 'AREA_END',
+    #'если'              : 'IF',
+    #'тогда'             : 'THEN',
+    #'иначе'             : 'ELSE',
+    #'конецесли'         : 'ENDIF',
     'для'               : 'FOR',
     'по'                : 'TO',
     'из'                : 'FROM',
@@ -56,20 +57,22 @@ reserved = {
 tokens = [
    'STRING',
    'NUMBER',
+   'DATE',
 
    'LSB',       # [
    'RSB',       # ]
    'QSTN',      # ?
-   'AMRSND',    # &
    'EQ',        # =
-   'NOTEQ',     # <>
-   'LESS',      # <
-   'MORE',      # >
+   'NOT_EQ',    # <>
+   'LT',        # <
+   'LE',        # <=
+   'GT',        # >
+   'GE',        # >=
    'PLUS',      # +
    'MINUS',     # -
    'TIMES',     # *
    'DIVIDE',    # /
-   'PERCENT',   # %
+   'MOD',       # %
    'COMMA',     # ,
    'SEMI',      # ;
    'DOT',       # .
@@ -86,21 +89,23 @@ tokens = [
 
 # Regular expression rules for simple tokens
 t_STRING    = r'"(?:[^"]|"")*"'
+t_DATE      = r'\'\d+\''
 t_DIRECTIVE = r'&[a-zA-Zа-яА-Я]*'
 t_LABEL     = r'~[a-zA-Zа-яА-Я_][a-zA-Zа-яА-Я_0-9]*'
 t_LSB       = r'\['
 t_RSB       = r'\]'
 t_QSTN      = r'\?'
-t_AMRSND    = r'\&'
 t_EQ        = r'='
-t_NOTEQ     = r'\<\>'
-t_LESS      = r'\<'
-t_MORE      = r'\>'
+t_NOT_EQ    = r'\<\>'
+t_LT        = r'\<'
+t_LE        = r'\<='
+t_GT        = r'\>'
+t_GE        = r'\>='
 t_PLUS      = r'\+'
 t_MINUS     = r'-'
 t_TIMES     = r'\*'
 t_DIVIDE    = r'/'
-t_PERCENT   = r'%'
+t_MOD       = r'%'
 t_COMMA     = r','
 t_SEMI      = r';'
 t_DOT       = r'\.'
