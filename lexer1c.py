@@ -7,23 +7,20 @@ import ply.lex as lex
 import re
 import imp
 import sys
-#imp.reload(sys)
-#sys.setdefaultencoding('utf-8')
 
 # reserved words
 reserved = {
-    # commented for debug convenience (console output overwrite)
-    #'#если'             : 'DEF_IF',
-    #'#тогда'            : 'DEF_THEN',
-    #'#иначеесли'        : 'DEF_ELSE_IF',
-    #'#иначе'            : 'DEF_ELSE',
-    #'#конецесли'        : 'DEF_ENDIF',
-    #'#область'          : 'AREA',
-    #'#конецобласти'     : 'AREA_END',
-    #'если'              : 'IF',
-    #'тогда'             : 'THEN',
-    #'иначе'             : 'ELSE',
-    #'конецесли'         : 'ENDIF',
+    '#если'             : 'DEF_IF',
+    '#иначеесли'        : 'DEF_ELSE_IF',
+    '#иначе'            : 'DEF_ELSE',
+    '#конецесли'        : 'DEF_END_IF',
+    '#область'          : 'AREA',
+    '#конецобласти'     : 'AREA_END',
+    'если'              : 'IF',
+    'тогда'             : 'THEN',
+    'иначеесли'         : 'ELSE_IF',
+    'иначе'             : 'ELSE',
+    'конецесли'         : 'END_IF',
     'для'               : 'FOR',
     'по'                : 'TO',
     'из'                : 'FROM',
@@ -121,7 +118,7 @@ def t_COMMENT(t):
 # preprocessor instructions
 def t_PREPROCID(t):
     r'\#[a-zA-Zа-яА-Я_][a-zA-Zа-яА-Я_0-9]*'
-    t.type = reserved.get(t.value.lower(), 'unknown preprocessor instruction: ' + t.value)
+    t.type = reserved.get(t.value.lower(), 'invalid preprocessor instruction: ' + t.value)
     return t
 
 # double identificator
