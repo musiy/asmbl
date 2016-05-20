@@ -10,22 +10,90 @@ precedence = (
                ('right', 'UMINUS', 'UPLUS')
 )
 
+## content
+
+def p_module_1(p):
+    '''module : global_vars SEMI proc_func_list statements'''
+    pass
+
+def p_module_2(p):
+    '''module : global_vars SEMI statements'''
+    pass
+
+def p_module_3(p):
+    '''module : proc_func_list statements'''
+    pass
+
+def p_module_4(p):
+    '''module : statements'''
+    pass
+
+## global vars
+def p_global_vars_1(p):
+    '''global_vars : global_vars SEMI VAR global_var_decl_list'''
+    pass
+
+def p_global_vars_2(p):
+    '''global_vars : VAR global_var_decl_list'''
+    pass
+
+def p_global_vars_3(p):
+    '''global_vars : DIRECTIVE VAR global_var_decl_list'''
+    pass
+
+def p_global_var_decl_list_1(p):
+    '''global_var_decl_list : global_var_decl_list COMMA global_var_decl'''
+
+def p_global_var_decl_list_2(p):
+    '''global_var_decl_list : global_var_decl'''
+
+def p_global_var_decl_1(p):
+    '''global_var_decl : ID'''
+
+def p_global_var_decl_2(p):
+    '''global_var_decl : ID EXPORT'''
+
+## funcs & procs
+
+def p_func_decls_1(p):
+    '''proc_func_list : proc_func_list func_decl'''
+    pass
+
+def p_func_decls_2(p):
+    '''proc_func_list : proc_func_list proc_decl'''
+    pass
+
+def p_func_decls_3(p):
+    '''proc_func_list : func_decl
+                      | proc_decl'''
+    pass
+
 ## -- begin function & procedure declaration --
 
 def p_func_decl_1(p):
-    '''func_decl : DIRECTIVE FUNCTION ID LPAREN declarator_list RPAREN func_body END_FUNCTION'''
+    '''func_decl : func_begin ID LPAREN declarator_list RPAREN func_body END_FUNCTION'''
     pass
 
 def p_func_decl_2(p):
-    '''func_decl : DIRECTIVE FUNCTION ID LPAREN declarator_list RPAREN EXPORT func_body END_FUNCTION'''
+    '''func_decl : func_begin ID LPAREN declarator_list RPAREN EXPORT func_body END_FUNCTION'''
     pass
 
-def p_func_decl_3(p):
-    '''func_decl : FUNCTION ID LPAREN declarator_list RPAREN func_body END_FUNCTION'''
+def p_proc_decl_1(p):
+    '''proc_decl : proc_begin ID LPAREN declarator_list RPAREN func_body END_PROCEDURE'''
     pass
 
-def p_func_decl_4(p):
-    '''func_decl : FUNCTION ID LPAREN declarator_list RPAREN EXPORT func_body END_FUNCTION'''
+def p_proc_decl_2(p):
+    '''proc_decl : proc_begin ID LPAREN declarator_list RPAREN EXPORT func_body END_PROCEDURE'''
+    pass
+
+def p_func_begin(p):
+    '''func_begin : DIRECTIVE FUNCTION
+                  | FUNCTION'''
+    pass
+
+def p_proc_begin(p):
+    '''proc_begin : DIRECTIVE PROCEDURE
+                  | PROCEDURE'''
     pass
 
 def p_init_declarator_list_1(t):
@@ -58,7 +126,7 @@ def p_init_declarator_4(t):
 
 def p_initializer(t):
     '''func_param_initializer : bool
-                              | STRING
+                              | strings
                               | NUMBER
                               | DATE
                               | UNDEFINED'''
@@ -74,7 +142,7 @@ def p_bool(p):
 ## -- begin function & procedure body --
 
 def p_func_body_1(p):
-    '''func_body : vars_decls_list semi statements'''
+    '''func_body : vars_decls_list SEMI statements'''
     pass
 
 def p_func_body_2(p):
@@ -100,29 +168,26 @@ def p_perems_list_2(p):
 ## statements
 
 def p_statements_1(p):
-    '''statements : statements_list semi'''
+    '''statements : statements SEMI statement'''
     pass
 
 def p_statements_2(p):
-    '''statements : statements_list'''
-    pass
-
-def p_statements_3(p):
-    '''statements : empty'''
-    pass
-
-def p_statements_list_1(p):
-    '''statements_list : statements_list semi statement'''
-    pass
-
-def p_statements_list_2(p):
-    '''statements_list : statement'''
+    '''statements : statement'''
     pass
 
 ## -- end function & procedure body --
 
+def p_statement(p):
+    '''statement : iteration_statement
+                 | jump_statement
+                 | if_else_statement
+                 | try_statement
+                 | labeled_statement
+                 | preproc_statement'''
+    pass
+
 def p_statement_1(p):
-    '''statement : prop_complex EQ expr'''
+    '''statement : property EQ expr'''
     pass
 
 def p_statement_2(p):
@@ -130,141 +195,23 @@ def p_statement_2(p):
     pass
 
 def p_statement_3(p):
-    '''statement : CONTINUE
-                 | BREAK'''
+    '''statement : empty'''
     pass
 
-def p_statement_4(p):
-    '''statement : GOTO LABEL'''
+def p_try_statement(p):
+    '''try_statement : TRY statements EXCEPTION statements END_TRY'''
     pass
 
-def p_semi_1(p):
-    '''semi : semi SEMI'''
+## labeled statement
+
+def p_labeled_statement(p):
+    '''labeled_statement : LABEL COLON statement'''
     pass
 
-def p_semi_2(p):
-    '''semi : SEMI'''
-    pass
+## if-else statement
 
-## -- BEGIN statement  --
-
-def p_prop_complex_1(p):
-    '''prop_complex : prop_complex DOT property'''
-    pass
-
-def p_prop_complex_2(p):
-    '''prop_complex : func_call DOT property'''
-    pass
-
-def p_prop_complex_3(p):
-    '''prop_complex : property'''
-    pass
-
-def p_property_1(p):
-    '''property : property LSB expr RSB'''
-    pass
-
-def p_property_2(p):
-    '''property : func_call LSB expr RSB'''
-    pass
-
-def p_property_3(p):
-    '''property : ID'''
-    pass
-
-def p_expr_simple(p):
-    '''expr : prop_complex
-            | func_call
-            | bool
-            | NUMBER
-            | DATE
-            | STRING
-            | UNDEFINED'''
-    pass
-
-def p_expr_binary(p):
-    '''expr : expr PLUS expr
-            | expr MINUS expr
-            | expr TIMES expr
-            | expr DIVIDE expr
-            | expr MOD expr
-            | expr OR expr
-            | expr AND expr
-            | expr NOT_EQ expr
-            | expr LT expr
-            | expr LE expr
-            | expr GT expr
-            | expr GE expr
-            | expr EQ expr
-            '''
-    # | expr EQ expr
-    pass
-
-def p_expr_group(p):
-    '''expr : LPAREN expr RPAREN'''
-    pass
-
-def p_expr_not(p):
-    'expr : NOT expr %prec UNOT'
-    pass
-
-def p_expr_uminus(p):
-    'expr : MINUS expr %prec UMINUS'
-    pass
-
-def p_expr_uplus(p):
-    'expr : PLUS expr %prec UPLUS'
-    pass
-
-def p_func_call(p):
-    '''func_call : ID LPAREN params_list RPAREN'''
-    pass
-
-def p_params_list_1(p):
-    '''params_list : empty'''
-    pass
-
-def p_params_list_2(p):
-    '''params_list : expr'''
-    pass
-
-def p_params_list_3(p):
-    '''params_list : params_list COMMA expr'''
-    pass
-
-## -- END statement --
-
-## -- BEGIN complex statement --
-
-def p_statement_complex_1(p):
-    '''statement : for_each_block
-                 | for_block
-                 | while_block
-                 | if_else_block
-                 | try_block
-                 | preproc_if_else_block'''
-    pass
-
-def p_for_each(p):
-    '''for_each_block : FOR_EACH ID FROM expr DO statements END_DO'''
-    pass
-
-def p_for_block(p):
-    '''for_block : FOR ID EQ expr TO expr DO statements END_DO'''
-    pass
-
-def p_while_block(p):
-    '''while_block : WHILE expr DO statements END_DO'''
-    pass
-
-def p_try_block(p):
-    '''try_block : TRY statements EXCEPTION statements END_TRY'''
-    pass
-
-## -- BEGIN if-elseif-else-endif block --
-
-def p_if_else_block(p):
-    '''if_else_block : IF expr THEN statements else_block END_IF'''
+def p_if_else_statement(p):
+    '''if_else_statement : IF expr THEN statements else_block END_IF'''
     pass
 
 def p_else_block_empty(p):
@@ -295,14 +242,51 @@ def p_else_if_block(p):
     '''else_if : ELSE_IF expr THEN statements'''
     pass
 
-## -- END if-elseif-else-endif block --
+## iteration statements
+
+def p_iteration_statement(p):
+    '''iteration_statement : for_each_block
+                           | for_block
+                           | while_block'''
+    pass
+
+def p_for_each(p):
+    '''for_each_block : FOR_EACH ID FROM expr DO statements END_DO'''
+    pass
+
+def p_for_block(p):
+    '''for_block : FOR ID EQ expr TO expr DO statements END_DO'''
+    pass
+
+def p_while_block(p):
+    '''while_block : WHILE expr DO statements END_DO'''
+    pass
+
+## jump statements
+def p_jump_statement(p):
+    '''jump_statement : RETURN expr_opt
+                      | RAISE expr_opt
+                      | CONTINUE
+                      | BREAK
+                      | GOTO LABEL'''
+    pass
+
+def p_expr_opt_1(t):
+    'expr_opt : empty'
+    pass
+
+def p_expr_opt_2(t):
+    'expr_opt : expr'
+    pass
+
+## preproc statement
 
 def p_preproc_if_else_block_1(p):
-    '''preproc_if_else_block : DEF_IF preproc_expr THEN statements DEF_END_IF'''
+    '''preproc_statement : DEF_IF preproc_expr THEN statements DEF_END_IF'''
     pass
 
 def p_preproc_if_else_block_2(p):
-    '''preproc_if_else_block : DEF_IF preproc_expr THEN statements preproc_else_block DEF_END_IF'''
+    '''preproc_statement : DEF_IF preproc_expr THEN statements preproc_else_block DEF_END_IF'''
     pass
 
 def p_preproc_else_block_1(p):
@@ -342,7 +326,139 @@ def p_preproc_expr_3(p):
     '''preproc_expr : LPAREN preproc_expr RPAREN'''
     pass
 
-## -- END complex statement --
+## -- BEGIN statement  --
+
+def p_property_1(p):
+    '''property : func_call DOT property_dotted'''
+    pass
+
+def p_property_3(p):
+    '''property : property_dotted'''
+    pass
+
+def p_property_dotted_1(p):
+    '''property_dotted : property DOT ID'''
+    pass
+
+def p_property_dotted_2(p):
+    '''property_dotted : property_dotted DOT ID'''
+    pass
+
+def p_property_dotted_3(p):
+    '''property_dotted : prop_element'''
+    pass
+
+def p_prop_element(p):
+    '''prop_element : prop_element LSB expr RSB'''
+    pass
+
+def p_prop_element_1(p):
+    'prop_element : func_call_simple LSB expr RSB'
+    pass
+
+def p_prop_element_3(p):
+    'prop_element : ID'
+    pass
+
+def p_func_call_simple(p):
+    '''func_call_simple : ID LPAREN params_list RPAREN'''
+    pass
+
+def p_func_call_2(p):
+    '''func_call : func_call_simple'''
+    pass
+
+## expression
+
+def p_expr_simple(p):
+    '''expr : property
+            | func_call
+            | bool
+            | NUMBER
+            | DATE
+            | strings
+            | UNDEFINED'''
+    pass
+
+def p_expr_binary(p):
+    '''expr : expr PLUS expr
+            | expr MINUS expr
+            | expr TIMES expr
+            | expr DIVIDE expr
+            | expr MOD expr
+            | expr OR expr
+            | expr AND expr
+            | expr NOT_EQ expr
+            | expr LT expr
+            | expr LE expr
+            | expr GT expr
+            | expr GE expr
+            | expr EQ expr
+            '''
+    # | expr EQ expr
+    pass
+
+def p_expr_group(p):
+    '''expr : LPAREN expr RPAREN'''
+    pass
+
+def p_expr_qstn(p):
+    '''expr : QSTN LPAREN expr COMMA expr COMMA expr RPAREN'''
+    pass
+
+def p_expr_new_1(p):
+    '''expr : NEW ID'''
+    pass
+
+def p_expr_new_2(p):
+    '''expr : NEW ID LPAREN params_list RPAREN'''
+    pass
+
+def p_expr_new_3(p):
+    '''expr : NEW LPAREN new_params_list RPAREN'''
+    pass
+
+def p_new_params_list_1(p):
+    '''new_params_list : new_params_list COMMA expr'''
+    pass
+
+def p_new_params_list_2(p):
+    '''new_params_list : expr'''
+    pass
+
+def p_expr_not(p):
+    'expr : NOT expr %prec UNOT'
+    pass
+
+def p_expr_uminus(p):
+    'expr : MINUS expr %prec UMINUS'
+    pass
+
+def p_expr_uplus(p):
+    'expr : PLUS expr %prec UPLUS'
+    pass
+
+def p_params_list_1(p):
+    '''params_list : empty'''
+    pass
+
+def p_params_list_2(p):
+    '''params_list : expr'''
+    pass
+
+def p_params_list_3(p):
+    '''params_list : params_list COMMA expr'''
+    pass
+
+## -- END statement --
+
+def p_strings_1(p):
+    '''strings : strings STRING'''
+    pass
+
+def p_strings_2(p):
+    '''strings : STRING'''
+    pass
 
 def p_empty(p):
     '''empty : '''
