@@ -14,8 +14,6 @@ reserved = {
     '#иначеесли'        : 'DEF_ELSE_IF',
     '#иначе'            : 'DEF_ELSE',
     '#конецесли'        : 'DEF_END_IF',
-    '#область'          : 'AREA',
-    '#конецобласти'     : 'AREA_END',
     'если'              : 'IF',
     'тогда'             : 'THEN',
     'иначеесли'         : 'ELSE_IF',
@@ -47,7 +45,8 @@ reserved = {
     'попытка'           : 'TRY',
     'исключение'        : 'EXCEPTION',
     'конецпопытки'      : 'END_TRY',
-    'вызватьисключение' : 'RAISE'
+    'вызватьисключение' : 'RAISE',
+    'возврат'           : 'RETURN'
 }
 
 # List of token names. This is always required.
@@ -79,8 +78,6 @@ tokens = [
 
    'ID', 
    'FOR_EACH',
-   'PREPROCID',
-   'COMMENT',
    'DIRECTIVE',
    'LABEL'] + list(reserved.values())
 
@@ -110,16 +107,17 @@ t_LPAREN    = r'\('
 t_RPAREN    = r'\)'
 t_COLON     = r':'
 
-# comment
-def t_COMMENT(t):
-    r'\/\/.*\n'
-    pass # just pass comment
-
 # preprocessor instructions
-def t_PREPROCID(t):
+def t_preprocessor(t):
     r'\#[a-zA-Zа-яА-Я_][a-zA-Zа-яА-Я_0-9]*'
-    t.type = reserved.get(t.value.lower(), 'invalid preprocessor instruction: ' + t.value)
-    return t
+    if t.value.lower() == '#область':
+        areaName = t.lexer.token()
+    elif t.value.lower() == '#конецобласти':
+        pass
+    else:
+        t.type = reserved.get(t.value.lower(), 'invalid preprocessor instruction: ' + t.value)
+        return t
+    pass
 
 # double identificator
 def t_FOR_EACH(t):
@@ -139,6 +137,12 @@ def t_NUMBER(t):
     r'\d+\.\d+|\d+'
     t.value = t.value
     return t
+
+# comment
+def t_comment(t):
+    r'\/\/.*\n'
+    t.lexer.lineno += 1
+    pass     
 
 # Define a rule so we can track line numbers
 def t_newline(t):
