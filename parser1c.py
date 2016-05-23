@@ -171,6 +171,11 @@ def p_statements_1(p):
     '''statements : statements SEMI statement'''
     pass
 
+def p_statements_error(p):
+    '''statements : statements error SEMI statement'''
+    print ("Incorect statement on line %d" % p.lexer.lineno)
+    pass
+
 def p_statements_2(p):
     '''statements : statement'''
     pass
@@ -191,7 +196,9 @@ def p_statement_1(p):
     pass
 
 def p_statement_2(p):
-    '''statement : func_call'''
+    '''statement : property'''
+    # здесь вместо property должен быть сложный вызов func_call,
+    # например для выражения a.a[1].f()
     pass
 
 def p_statement_3(p):
@@ -272,11 +279,11 @@ def p_jump_statement(p):
     pass
 
 def p_expr_opt_1(t):
-    'expr_opt : empty'
+    '''expr_opt : empty'''
     pass
 
 def p_expr_opt_2(t):
-    'expr_opt : expr'
+    '''expr_opt : expr'''
     pass
 
 ## preproc statement
@@ -329,50 +336,33 @@ def p_preproc_expr_3(p):
 ## -- BEGIN statement  --
 
 def p_property_1(p):
-    '''property : func_call DOT property_dotted'''
+    '''property : property DOT prop_element'''
     pass
 
-def p_property_3(p):
-    '''property : property_dotted'''
-    pass
-
-def p_property_dotted_1(p):
-    '''property_dotted : property DOT ID'''
-    pass
-
-def p_property_dotted_2(p):
-    '''property_dotted : property_dotted DOT ID'''
-    pass
-
-def p_property_dotted_3(p):
-    '''property_dotted : prop_element'''
-    pass
-
-def p_prop_element(p):
-    '''prop_element : prop_element LSB expr RSB'''
+def p_property_2(p):
+    '''property : prop_element'''
     pass
 
 def p_prop_element_1(p):
-    'prop_element : func_call_simple LSB expr RSB'
+    '''prop_element : prop_element LSB expr RSB'''
+    pass
+
+def p_prop_element_2(p):
+    '''prop_element : func_call'''
     pass
 
 def p_prop_element_3(p):
-    'prop_element : ID'
+    '''prop_element : ID'''
     pass
 
-def p_func_call_simple(p):
-    '''func_call_simple : ID LPAREN params_list RPAREN'''
-    pass
-
-def p_func_call_2(p):
-    '''func_call : func_call_simple'''
+def p_func_call(p):
+    '''func_call : ID LPAREN params_list RPAREN'''
     pass
 
 ## expression
 
 def p_expr_simple(p):
     '''expr : property
-            | func_call
             | bool
             | NUMBER
             | DATE
@@ -395,7 +385,6 @@ def p_expr_binary(p):
             | expr GE expr
             | expr EQ expr
             '''
-    # | expr EQ expr
     pass
 
 def p_expr_group(p):
@@ -427,15 +416,15 @@ def p_new_params_list_2(p):
     pass
 
 def p_expr_not(p):
-    'expr : NOT expr %prec UNOT'
+    '''expr : NOT expr %prec UNOT'''
     pass
 
 def p_expr_uminus(p):
-    'expr : MINUS expr %prec UMINUS'
+    '''expr : MINUS expr %prec UMINUS'''
     pass
 
 def p_expr_uplus(p):
-    'expr : PLUS expr %prec UPLUS'
+    '''expr : PLUS expr %prec UPLUS'''
     pass
 
 def p_params_list_1(p):
@@ -466,8 +455,7 @@ def p_empty(p):
 
 # Error rule for syntax errors
 def p_error(p):
-    print("Syntax error in input!")
-
+    print("Syntax error in input on %d"  % p.lexer.lineno)
 
 # Build the parser
 parser = yacc.yacc()
@@ -475,4 +463,3 @@ parser = yacc.yacc()
 if __name__ == '__main__':
     data = open("samples/sample.1c", encoding='utf-8').read()
     result = parser.parse(data)
-    print(result)
