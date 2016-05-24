@@ -324,6 +324,10 @@ def p_preproc_expr_1(p):
     '''preproc_expr : ID'''
     pass
 
+def p_preproc_expr_not(p):
+    '''preproc_expr : NOT preproc_expr %prec UNOT'''
+    pass
+
 def p_preproc_expr_2(p):
     '''preproc_expr : preproc_expr AND preproc_expr
                     | preproc_expr OR preproc_expr'''
@@ -437,6 +441,10 @@ def p_params_list_2(p):
 
 def p_params_list_3(p):
     '''params_list : params_list COMMA expr'''
+    pass
+
+def p_params_list_4(p):
+    '''params_list : params_list COMMA empty'''
     pass
 
 ## -- END statement --
