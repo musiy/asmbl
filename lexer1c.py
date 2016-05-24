@@ -5,8 +5,11 @@
 # ------------------------------------------------------------
 import ply.lex as lex
 import re
-import imp
 import sys
+
+states = (
+   ('compstring','exclusive'),
+)
 
 # reserved words
 reserved = {
@@ -140,9 +143,8 @@ def t_NUMBER(t):
 
 # comment
 def t_comment(t):
-    r'\/\/.*\n'
-    t.lexer.lineno += 1
-    pass     
+    r'\/\/.*'
+    pass
 
 # Define a rule so we can track line numbers
 def t_newline(t):
@@ -157,6 +159,64 @@ def t_error(t):
     print("== Illegal character: %s" % str(t))
     t.lexer.skip(1)
 
+## string state processing
+
+def t_compstring(t):
+    '\"'
+    t.lexer.begin('compstring')
+    t.value = ""
+    while lexer.lexstate == 'compstring':
+        curr = t.lexer.next()
+        t.value += curr.value
+    t.type = 'STRING'
+    return t
+
+def t_compstring_next_block_type(t):
+    r'[^"\n]{1,}'
+    t.type = 'STRING'
+    while (t.lexer.lexdata[t.lexer.lexpos] == '"'):
+        if (t.lexer.lexdata[t.lexer.lexpos+1] == '"'):
+            t.lexer.lexpos += 2
+            t.value += '"'
+        else:
+            t.lexer.lexpos += 1
+            t.lexer.begin('INITIAL')
+            break
+    return t
+
+def t_compstring_quotes(t):
+    r'\"'
+    t.type = 'STRING'
+    if t.lexer.lexpos == t.lexer.lexlen or t.lexer.lexdata[t.lexer.lexpos] != '"':
+        t.lexer.begin('INITIAL')
+        t.value = ""
+    else:
+        t.lexer.lexpos += 1
+        t.value = '"'
+    return t
+
+def t_compstring_newline(t):
+    r'\n\s*\|'
+    for ch in t.value:
+        if ch == "\n":
+            t.lexer.lineno += 1
+    t.value = "\n"
+    t.type = "STRING"
+    return t
+
+def t_compstring_newline_withcomment(t):
+    r'\n\s*\/\/.*'
+    for ch in t.value:
+        if ch == "\n":
+            t.lexer.lineno += 1
+    pass
+
+t_compstring_ignore  = ''
+
+def t_compstring_error(t):
+    print("== string state processing error: %s" % str(t))
+    t.lexer.skip(1)
+
 # Build the lexer
 lexer = lex.lex(reflags=re.I)
 
@@ -164,4 +224,4 @@ if __name__ == '__main__':
     data = open("samples/sample.1c", encoding='utf-8').read()
     lexer.input(data)
     for lextoken in lexer:
-        print(lextoken)
+        print(lextoken, lexer.lexstate)
