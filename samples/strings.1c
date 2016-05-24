@@ -1,0 +1,7 @@
+   "    
+   |""ALPHA"": // part of the string comment""""""
+
+    // NOT part of the "" string comment
+
+   | BRAVO
+   |"
