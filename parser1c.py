@@ -1,5 +1,6 @@
 import ply.yacc as yacc
 from lexer1c import tokens
+import strct1c
 
 precedence = (
                ('left', 'EQ', 'NOT_EQ', 'LT', 'LE', 'GT', 'GE'),
@@ -14,44 +15,55 @@ precedence = (
 
 def p_module_1(p):
     '''module : global_vars SEMI proc_func_list statements'''
-    pass
+    p[0] = strct1c.Module(statements_list = p[4], proc_func_list = p[3], global_vars = p[1])
 
 def p_module_2(p):
     '''module : global_vars SEMI statements'''
-    pass
+    p[0] = strct1c.Module(statements_list=p[3], global_vars=p[1])
 
 def p_module_3(p):
     '''module : proc_func_list statements'''
-    pass
+    p[0] = strct1c.Module(statements_list=p[2], proc_func_list=p[1])
 
 def p_module_4(p):
     '''module : statements'''
-    pass
+    p[0] = strct1c.Module(statements_list=p[1])
 
 ## global vars
 def p_global_vars_1(p):
-    '''global_vars : global_vars SEMI VAR global_var_decl_list'''
-    pass
+    '''global_vars : global_vars SEMI directive VAR global_var_decl_list'''
+    p[0] = [x for x in p[1]]
+    p[0].append(strct1c.VariablesDeclaration(p[3], p[5]))
 
 def p_global_vars_2(p):
-    '''global_vars : VAR global_var_decl_list'''
-    pass
-
-def p_global_vars_3(p):
-    '''global_vars : DIRECTIVE VAR global_var_decl_list'''
-    pass
+    '''global_vars : directive VAR global_var_decl_list'''
+    p[0] = [strct1c.VariablesDeclaration(p[1], p[3])]
 
 def p_global_var_decl_list_1(p):
     '''global_var_decl_list : global_var_decl_list COMMA global_var_decl'''
+    p[0] = [x for x in p[1]]
+    p[0].append(p[3])
+    pass
 
 def p_global_var_decl_list_2(p):
     '''global_var_decl_list : global_var_decl'''
+    p[0] = [p[1]]
 
 def p_global_var_decl_1(p):
     '''global_var_decl : ID'''
+    p[0] = strct1c.VarDesc(p[1])
 
 def p_global_var_decl_2(p):
     '''global_var_decl : ID EXPORT'''
+    p[0] = strct1c.VarDesc(p[1], True)
+
+def p_directive(p):
+    '''directive : DIRECTIVE'''
+    p[0] = p[1]
+
+def p_directive_empty(p):
+    '''directive : empty'''
+    p[0] = None
 
 ## funcs & procs
 
@@ -87,13 +99,11 @@ def p_proc_decl_2(p):
     pass
 
 def p_func_begin(p):
-    '''func_begin : DIRECTIVE FUNCTION
-                  | FUNCTION'''
+    '''func_begin : directive FUNCTION'''
     pass
 
 def p_proc_begin(p):
-    '''proc_begin : DIRECTIVE PROCEDURE
-                  | PROCEDURE'''
+    '''proc_begin : directive PROCEDURE'''
     pass
 
 def p_init_declarator_list_1(t):
@@ -167,17 +177,18 @@ def p_perems_list_2(p):
 
 ## statements
 
-def p_statements_1(p):
+def p_statements_list(p):
     '''statements : statements SEMI statement'''
-    pass
+    p[0] = [x for x in p[1]]
+    p[0].append(p[3])
+
+def p_statements_simple(p):
+    '''statements : statement'''
+    p[0] = [p[1]]
 
 def p_statements_error(p):
     '''statements : statements error SEMI statement'''
     print ("Incorect statement on line %d" % p.lexer.lineno)
-    pass
-
-def p_statements_2(p):
-    '''statements : statement'''
     pass
 
 ## -- end function & procedure body --
@@ -191,17 +202,18 @@ def p_statement(p):
                  | preproc_statement'''
     pass
 
-def p_statement_1(p):
+def p_statement_eq(p):
     '''statement : property EQ expr'''
-    pass
+    p[0] = strct1c.StatementSimple(p[1], p[3])
 
-def p_statement_2(p):
+def p_statement_func_call(p):
     '''statement : property'''
     # здесь вместо property должен быть сложный вызов func_call,
     # например для выражения a.a[1].f()
+    p[0] = strct1c.StatementSimple(p[1])
     pass
 
-def p_statement_3(p):
+def p_statement_empty(p):
     '''statement : empty'''
     pass
 
@@ -341,27 +353,27 @@ def p_preproc_expr_3(p):
 
 def p_property_1(p):
     '''property : property DOT prop_element'''
-    pass
+    p[0] = strct1c.Property(p[1], p[3])
 
 def p_property_2(p):
     '''property : prop_element'''
-    pass
+    p[0] = strct1c.Property(p[1])
 
 def p_prop_element_1(p):
     '''prop_element : prop_element LSB expr RSB'''
-    pass
+    p[0] = strct1c.PropertyElement(p[1], p[3]);
 
 def p_prop_element_2(p):
     '''prop_element : func_call'''
-    pass
+    p[0] = strct1c.PropertyElement(p[1]);
 
 def p_prop_element_3(p):
     '''prop_element : ID'''
-    pass
+    p[0] = strct1c.PropertyElement(p[1]);
 
 def p_func_call(p):
     '''func_call : ID LPAREN params_list RPAREN'''
-    pass
+    p[0] = strct1c.FuncCall(p[1], p[3])
 
 ## expression
 
@@ -372,7 +384,11 @@ def p_expr_simple(p):
             | DATE
             | strings
             | UNDEFINED'''
-    pass
+    p[0] = strct1c.SimpleExpr(p[1])
+
+def p_expr_group(p):
+    '''expr : LPAREN expr RPAREN'''
+    p[0] = strct1c.SimpleExpr(p[2], True)
 
 def p_expr_binary(p):
     '''expr : expr PLUS expr
@@ -389,11 +405,7 @@ def p_expr_binary(p):
             | expr GE expr
             | expr EQ expr
             '''
-    pass
-
-def p_expr_group(p):
-    '''expr : LPAREN expr RPAREN'''
-    pass
+    p[0] = strct1c.BinaryExpr(p[1], p[3], p[2])
 
 def p_expr_qstn(p):
     '''expr : QSTN LPAREN expr COMMA expr COMMA expr RPAREN'''
@@ -432,34 +444,34 @@ def p_expr_uplus(p):
     pass
 
 def p_params_list_1(p):
-    '''params_list : empty'''
-    pass
+    '''params_list : params_list COMMA expr'''
+    p[0] = strct1c.ParamListComma(p[1], p[3])
 
 def p_params_list_2(p):
-    '''params_list : expr'''
-    pass
-
-def p_params_list_3(p):
-    '''params_list : params_list COMMA expr'''
-    pass
-
-def p_params_list_4(p):
     '''params_list : params_list COMMA empty'''
-    pass
+    p[0] = strct1c.ParamListComma(p[1])
+
+def p_params_list_empty(p):
+    '''params_list : empty'''
+    p[0] = strct1c.Empty
+
+def p_params_list_expr(p):
+    '''params_list : expr'''
+    p[0] = [p[1]]
 
 ## -- END statement --
 
 def p_strings_1(p):
     '''strings : strings STRING'''
-    pass
+    p[0] = strct1c.StringsSeq(p[1], p[2])
 
 def p_strings_2(p):
     '''strings : STRING'''
-    pass
+    p[0] = strct1c.StringsBase(p[1])
 
 def p_empty(p):
     '''empty : '''
-    pass
+    p[0] = strct1c.Empty()
 
 # Error rule for syntax errors
 def p_error(p):
