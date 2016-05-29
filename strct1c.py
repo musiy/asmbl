@@ -129,7 +129,7 @@ class WhileBlock(Statement):
 class JumpStatemets(Statement):
     key_word = None
     second_param = None
-    def __init__(self, key_word, second_param):
+    def __init__(self, key_word, second_param = None):
         self.key_word = key_word
         self.second_param = second_param
 
