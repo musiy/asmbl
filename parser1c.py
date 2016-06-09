@@ -1,10 +1,12 @@
+# -*- coding: utf-8 -*-
+
 import ply.yacc as yacc
 from lexer1c import tokens
 import strct1c
 
 precedence = (
-               ('left', 'EQ', 'NOT_EQ', 'LT', 'LE', 'GT', 'GE'),
                ('left', 'OR', 'AND'),
+               ('left', 'EQ', 'NOT_EQ', 'LT', 'LE', 'GT', 'GE'),
                ('left', 'PLUS', 'MINUS'),
                ('left', 'TIMES', 'DIVIDE', 'MOD'),
                ('right', 'UNOT'),
@@ -19,15 +21,15 @@ def p_module_1(p):
 
 def p_module_2(p):
     '''module : global_vars SEMI statements'''
-    p[0] = strct1c.Module(statements_list=p[3], global_vars=p[1])
+    p[0] = strct1c.Module(statements_list=p[3], proc_func_list = [], global_vars=p[1])
 
 def p_module_3(p):
     '''module : proc_func_list statements'''
-    p[0] = strct1c.Module(statements_list=p[2], proc_func_list=p[1])
+    p[0] = strct1c.Module(statements_list=p[2], proc_func_list=p[1], global_vars = [])
 
 def p_module_4(p):
     '''module : statements'''
-    p[0] = strct1c.Module(statements_list=p[1])
+    p[0] = strct1c.Module(statements_list=p[1], proc_func_list = [], global_vars = [])
 
 ## global vars
 def p_global_vars_1(p):
@@ -62,7 +64,7 @@ def p_directive(p):
 
 def p_directive_empty(p):
     '''directive : empty'''
-    p[0] = p[1]
+    p[0] = ""
 
 ## funcs & procs
 
@@ -106,7 +108,7 @@ def p_init_declarator_list_2(p):
 
 def p_init_declarator_list_3(p):
     '''declarator_list : empty'''
-    p[0] = strct1c.Empty
+    p[0] = []
 
 def p_init_declarator_1(p):
     '''init_declarator : ID'''
@@ -114,7 +116,7 @@ def p_init_declarator_1(p):
 
 def p_init_declarator_2(p):
     '''init_declarator : VAL ID'''
-    p[0] = strct1c.FuncVarInitDecl(True, p[1])
+    p[0] = strct1c.FuncVarInitDecl(True, p[2])
 
 def p_init_declarator_3(p):
     '''init_declarator : ID EQ func_param_initializer'''
@@ -142,11 +144,11 @@ def p_func_body_1(p):
 
 def p_func_body_vars_decls_list(p):
     '''func_body : vars_decls_list'''
-    p[0] = strct1c.FuncBody(vars_decls_list=p[1])
+    p[0] = strct1c.FuncBody(vars_decls_list=p[1], statements = [])
 
 def p_func_body_statements(p):
     '''func_body : statements'''
-    p[0] = strct1c.FuncBody(statements=p[1])
+    p[0] = strct1c.FuncBody(vars_decls_list=[], statements=p[1])
 
 def p_perem_decl_list_1(p):
     '''vars_decls_list : vars_decls_list SEMI VAR vars_list'''
@@ -171,11 +173,13 @@ def p_perems_list_2(p):
 def p_statements_list(p):
     '''statements : statements SEMI statement'''
     p[0] = [x for x in p[1]]
-    p[0].append(p[3])
+    if not isinstance(p[3], strct1c.Empty):
+        # пропускаем завершающий пустой блок
+        p[0].append(p[3])
 
 def p_statements_simple(p):
     '''statements : statement'''
-    p[0] = [p[1]]
+    p[0] = [] if isinstance(p[1], strct1c.Empty) else [p[1]]
 
 def p_statements_error(p):
     '''statements : statements error SEMI statement'''
@@ -204,7 +208,7 @@ def p_statement_func_call(p):
 
 def p_statement_empty(p):
     '''statement : empty'''
-    p[0] = strct1c.Empty
+    p[0] = p[1]
 
 def p_try_statement(p):
     '''try_statement : TRY statements EXCEPTION statements END_TRY'''
@@ -224,12 +228,12 @@ def p_if_else_statement(p):
 
 def p_else_block_empty(p):
     '''else_block : empty'''
-    p[0] = strct1c.Empty()
+    p[0] = []
 
 def p_else_block_1(p):
     '''else_block : else_if_collection ELSE statements'''
     p[0] = [x for x in p[1]]
-    p[0].append(strct1c.ElseCollection(p[3]))
+    p[0].append(strct1c.ElseStatement(p[3]))
 
 def p_else_block_2(p):
     '''else_block : else_if_collection'''
@@ -237,16 +241,16 @@ def p_else_block_2(p):
 
 def p_else_block_3(p):
     '''else_block : ELSE statements'''
-    p[0] = [strct1c.ElseCollection(p[2])]
+    p[0] = [strct1c.ElseStatement(p[2])]
 
 def p_else_if_collection_1(p):
     '''else_if_collection : else_if_collection ELSE_IF expr THEN statements'''
     p[0] = [x for x in p[1]]
-    p[0].append(strct1c.ElseCollection(p[5], p[3]))
+    p[0].append(strct1c.ElseStatement(p[5], p[3]))
 
 def p_else_if_collection_2(p):
     '''else_if_collection : ELSE_IF expr THEN statements'''
-    p[0] = [strct1c.ElseCollection(p[4], p[2])]
+    p[0] = [strct1c.ElseStatement(p[4], p[2])]
 
 ## iteration statements
 
@@ -280,11 +284,11 @@ def p_jump_statement_two(p):
                       | GOTO LABEL'''
     p[0] = strct1c.JumpStatemets(p[1], p[2])
 
-def p_expr_opt_1(t):
+def p_expr_opt_1(p):
     '''expr_opt : empty'''
     p[0] = p[1]
 
-def p_expr_opt_2(t):
+def p_expr_opt_2(p):
     '''expr_opt : expr'''
     p[0] = p[1]
 
@@ -296,12 +300,12 @@ def p_preproc_if_else_block(p):
 
 def p_preproc_else_block_empty(p):
     '''preproc_else_block : empty'''
-    p[0] = strct1c.Empty()
+    p[0] = []
 
 def p_preproc_else_block_1(p):
     '''preproc_else_block : preproc_else_if_collection DEF_ELSE statements'''
     p[0] = [x for x in p[1]]
-    p[0].append(strct1c.PreprocElseCollection(p[3]))
+    p[0].append(strct1c.PreprocElse(p[3]))
 
 def p_preproc_else_block_2(p):
     '''preproc_else_block : preproc_else_if_collection'''
@@ -309,18 +313,18 @@ def p_preproc_else_block_2(p):
 
 def p_preproc_else_block_3(p):
     '''preproc_else_block : DEF_ELSE statements'''
-    p[0] = [strct1c.PreprocElseCollection(p[2])]
+    p[0] = [strct1c.PreprocElse(p[2])]
 
 def p_preproc_else_if_collection_1(p):
     '''preproc_else_if_collection : preproc_else_if_collection DEF_ELSE_IF preproc_expr THEN statements'''
     p[0] = [x for x in p[1]]
-    p[0].append(strct1c.PreprocElseCollection(p[5], p[3]))
+    p[0].append(strct1c.PreprocElse(p[5], p[3]))
 
 def p_preproc_else_if_collection_2(p):
     '''preproc_else_if_collection : DEF_ELSE_IF preproc_expr THEN statements'''
-    p[0] = [strct1c.PreprocElseCollection(p[4], p[2])]
+    p[0] = [strct1c.PreprocElse(p[4], p[2])]
 
-def p_preproc_expr_2(p):
+def p_preproc_expr_binary(p):
     '''preproc_expr : preproc_expr AND preproc_expr
                     | preproc_expr OR preproc_expr'''
     p[0] = strct1c.PreprocExprBinary(p[1], p[3], p[2])
@@ -342,23 +346,32 @@ def p_preproc_expr_not(p):
 
 def p_property_1(p):
     '''property : property DOT prop_element'''
-    p[0] = strct1c.Property(p[1], p[3])
+    if isinstance(p[1], strct1c.DottedExpression):
+        property_dotted = p[1]
+    else:
+        property_dotted = strct1c.DottedExpression(p[1])
+    property_dotted.append(p[3])
+    p[0] = property_dotted
 
 def p_property_2(p):
     '''property : prop_element'''
-    p[0] = strct1c.Property(p[1])
+    p[0] = p[1]
 
 def p_prop_element_1(p):
     '''prop_element : prop_element LSB expr RSB'''
-    p[0] = strct1c.PropertyElement(p[1], p[3]);
+    if isinstance(p[1], strct1c.PropertyIndexed):
+        p[1].apnd(p[3])
+        p[0] = p[1]
+    else:
+        p[0] = strct1c.PropertyIndexed(p[1], p[3])
 
 def p_prop_element_2(p):
     '''prop_element : func_call'''
-    p[0] = strct1c.PropertyElement(p[1]);
+    p[0] = p[1]
 
 def p_prop_element_3(p):
     '''prop_element : ID'''
-    p[0] = strct1c.PropertyElement(p[1]);
+    p[0] = strct1c.Identifier(p[1])
 
 def p_func_call(p):
     '''func_call : ID LPAREN params_list RPAREN'''
@@ -373,11 +386,11 @@ def p_expr_simple(p):
             | date
             | strings
             | undefined'''
-    p[0] = strct1c.SimpleExpr(p[1])
+    p[0] = p[1]
 
 def p_expr_group(p):
     '''expr : LPAREN expr RPAREN'''
-    p[0] = strct1c.SimpleExpr(p[2], True)
+    p[0] = strct1c.GroupedExpr(p[2])
 
 def p_expr_binary(p):
     '''expr : expr PLUS expr
@@ -435,15 +448,19 @@ def p_expr_uplus(p):
 
 def p_params_list_1(p):
     '''params_list : params_list COMMA expr'''
-    p[0] = strct1c.ParamListComma(p[1], p[3])
+    res = [x for x in p[1]]
+    res += [p[3]]
+    p[0] = res
 
 def p_params_list_2(p):
     '''params_list : params_list COMMA empty'''
-    p[0] = strct1c.ParamListComma(p[1])
+    res = [x for x in p[1]]
+    res += [p[3]]
+    p[0] = res
 
 def p_params_list_empty(p):
     '''params_list : empty'''
-    p[0] = strct1c.Empty
+    p[0] = [p[1]]
 
 def p_params_list_expr(p):
     '''params_list : expr'''
@@ -470,12 +487,12 @@ def p_undefined(p):
 
 def p_strings_list(p):
     '''strings : strings STRING'''
-    p[0] = [x for x in p[1]]
-    p[0].append(strct1c.Strings(p[2]))
+    p[1].apnd(p[2])
+    p[0] = p[1]
 
 def p_strings(p):
     '''strings : STRING'''
-    p[0] = [strct1c.Strings(p[1])]
+    p[0] = strct1c.Strings(p[1])
 
 def p_empty(p):
     '''empty : '''
@@ -491,4 +508,5 @@ parser = yacc.yacc()
 if __name__ == '__main__':
     data = open("samples/sample.1c", encoding='utf-8').read()
     result = parser.parse(data)
+    print(strct1c.get_text(result))
     pass
