@@ -32,10 +32,10 @@ def get_text(module):
     set_indent(0)
     return module.get_text()
 
-def get_func_list(struct_list):
+def get_tokens_list(struct_list, obj_type, filter):
     func_list = []
     for x in struct_list:
-        func_list += x.get_func_list()
+        func_list += x.get_tokens_list(obj_type, filter)
     return func_list
 
 class Module:
@@ -138,8 +138,8 @@ class FuncBody:
     def __init__(self, vars_decls_list = None, statements = None):
         self.vars_decls_list = vars_decls_list
         self.statements = statements
-    def get_func_list(self):
-        return get_func_list(self.statements)
+    def get_tokens_list(self, obj_type, filter = set()):
+        return get_tokens_list(self.statements, obj_type, filter)
     def get_text(self):
         text = get_op_list_text(self.vars_decls_list)
         if self.vars_decls_list:
@@ -157,8 +157,8 @@ class StatementAssignment(Statement):
     def __init__(self, property, expr = None):
         self.property = property
         self.expr = expr
-    def get_func_list(self):
-        return self.expr.get_func_list()
+    def get_tokens_list(self, obj_type, filter = set()):
+        return self.property.get_tokens_list(obj_type, filter) + self.expr.get_tokens_list(obj_type, filter)
     def get_text(self):
         return self.property.get_text() + " = " + self.expr.get_text()
 
@@ -167,8 +167,8 @@ class StatementFuncCall(Statement):
     func_call_path = None
     def __init__(self, func_call_path):
         self.func_call_path = func_call_path
-    def get_func_list(self):
-        return self.func_call_path.get_func_list()
+    def get_tokens_list(self, obj_type, filter = set()):
+        return self.func_call_path.get_tokens_list(obj_type, filter)
     def get_text(self):
         return self.func_call_path.get_text()
 
@@ -178,8 +178,9 @@ class TryStatement(Statement):
     def __init__(self, try_statements, except_statements):
         self.try_statements = try_statements
         self.except_statements = except_statements
-    def get_func_list(self):
-        return get_func_list(self.try_statements) + get_func_list(self.except_statements)
+    def get_tokens_list(self, obj_type, filter = set()):
+        return get_tokens_list(self.try_statements, obj_type, filter) \
+               + get_tokens_list(self.except_statements, obj_type, filter)
     def get_text(self):
         text = "Попытка" + "\n"
         incrase_indent()
@@ -199,8 +200,8 @@ class LabeledStatement(Statement):
     def __init__(self, label_name, statement):
         self.label_name = label_name
         self.statement = statement
-    def get_func_list(self):
-        return self.statement.get_func_list()
+    def get_tokens_list(self, obj_type, filter = set()):
+        return self.statement.get_tokens_list(obj_type, filter)
     def get_text(self):
         text = self.label_name + ":" + "\n"
         text += get_indent_spaces() + self.statement.get_text()
@@ -215,10 +216,10 @@ class IfElseStatement(Statement):
         self.if_expression = if_expression
         self.if_statements = if_statements
         self.else_collection = else_collection
-    def get_func_list(self):
-        return self.if_expression.get_func_list() \
-               + get_func_list(self.if_statements) \
-               + get_func_list(self.else_collection)
+    def get_tokens_list(self, obj_type, filter = set()):
+        return self.if_expression.get_tokens_list(obj_type, filter) \
+               + get_tokens_list(self.if_statements, obj_type, filter) \
+               + get_tokens_list(self.else_collection, obj_type, filter)
     def get_text(self):
         text = "Если " + self.if_expression.get_text() + " Тогда" + "\n"
         incrase_indent()
@@ -244,11 +245,11 @@ class ElseStatement:
     def __init__(self, statements, condition = None):
         self.condition = condition
         self.statements = statements
-    def get_func_list(self):
+    def get_tokens_list(self, obj_type, filter = set()):
         result = []
         if (self.condition):
-            result += self.condition.get_func_list()
-        return result+get_func_list(self.statements)
+            result += self.condition.get_tokens_list(obj_type, filter)
+        return result + get_tokens_list(self.statements, obj_type, filter)
 
 class ForEachBlock(Statement):
     id_name = None
@@ -258,9 +259,9 @@ class ForEachBlock(Statement):
         self.id_name = id_name
         self.expression = expression
         self.statements = statements
-    def get_func_list(self):
-        return self.expression.get_func_list() \
-               + get_func_list(self.statements)
+    def get_tokens_list(self, obj_type, filter = set()):
+        return self.expression.get_tokens_list(obj_type, filter) \
+               + get_tokens_list(self.statements, obj_type, filter)
     def get_text(self):
         text = "Для Каждого " + self.id_name + " Из " + self.expression.get_text() + " Цикл" + "\n"
         incrase_indent()
@@ -280,10 +281,10 @@ class ForBlock(Statement):
         self.expression_start = expression_start
         self.expression_end = expression_end
         self.statements = statements
-    def get_func_list(self):
-        return self.expression_start.get_func_list() \
-               + self.expression_end.get_func_list() \
-               + get_func_list(self.statements)
+    def get_tokens_list(self, obj_type, filter = set()):
+        return self.expression_start.get_tokens_list(obj_type, filter) \
+               + self.expression_end.get_tokens_list(obj_type, filter) \
+               + get_tokens_list(self.statements, obj_type, filter)
     def get_text(self):
         text = "Для " + self.id_name + " = " + self.expression_start.get_text() \
                 + " По " + self.expression_end.get_text() + " Цикл" + "\n"
@@ -300,9 +301,9 @@ class WhileBlock(Statement):
     def __init__(self, expression, statements):
         self.expression = expression
         self.statements = statements
-    def get_func_list(self):
-        return self.expression.get_func_list() \
-               + get_func_list(self.statements)
+    def get_tokens_list(self, obj_type, filter = set()):
+        return self.expression.get_tokens_list(obj_type, filter) \
+               + get_tokens_list(self.statements, obj_type, filter)
     def get_text(self):
         text = "Пока " + self.expression.get_text() + " Цикл" + "\n"
         incrase_indent()
@@ -318,10 +319,10 @@ class JumpStatemets(Statement):
     def __init__(self, key_word, second_param = None):
         self.key_word = key_word
         self.second_param = second_param
-    def get_func_list(self):
+    def get_tokens_list(self, obj_type, filter = set()):
         result = []
         if self.second_param:
-            result += self.second_param.get_func_list()
+            result += self.second_param.get_tokens_list(obj_type, filter)
         return result
     def get_text(self):
         text = self.key_word
@@ -335,25 +336,42 @@ class DottedExpression:
         self.properties_list = [property]
     def append(self, property):
         self.properties_list += [property]
-    def get_func_list(self):
+    def get_tokens_list(self, obj_type, filter = set()):
         result = []
         # расчитываем на вызов <имя модуля>.<вызов функции>
-        if len(self.properties_list) == 2:
+        if obj_type == "function" and len(self.properties_list) >= 2:
+            # может быть вызов вида:
+            #   Subsys_ОбщегоНазначенияКлиентСервер.ПолучитьРеквизитОбъекта().ИмяСвойство
             if isinstance(self.properties_list[0], Identifier) and isinstance(self.properties_list[1], FuncCall):
                 # имя_модуля.имя_функции(<параметры>)
-                result += [self.properties_list[0].id + "." + self.properties_list[1].name]
+                result += [(self, self.properties_list[0].id + "." + self.properties_list[1].name)]
             elif isinstance(self.properties_list[0], Identifier) \
                     and isinstance(self.properties_list[1], PropertyIndexed) \
                     and isinstance(self.properties_list[1].operand, FuncCall):
                 # имя_модуля.имя_функции(<параметры>)[expr][expr]
-                result += [self.properties_list[0].id + "." + self.properties_list[1].operand.name]
+                result += [(self, self.properties_list[0].id + "." + self.properties_list[1].operand.name)]
+        elif obj_type == "id" and filter:
+            # для идентификаторов обязательно должен быть установлен фильтр
+            id_was_found = False
+            # полный путь обращения к идентификатору
+            id_text = ""
+            for prop_element in self.properties_list:
+                if isinstance(prop_element, Identifier) and prop_element.id.lower() in filter:
+                    id_was_found = True
+                if id_text:
+                    id_text += "."
+                id_text += prop_element.get_name()
+            if id_was_found:
+                result += [(self, id_text)]
+
         for prop_element in self.properties_list:
+            # получаем обращения к функциям из параметров функций и индексов
             if isinstance(prop_element, FuncCall):
-                result += get_func_list(prop_element.param_list)
+                result += get_tokens_list(prop_element.param_list, obj_type, filter)
             elif isinstance(prop_element, PropertyIndexed):
                 if isinstance(prop_element.operand, FuncCall):
-                    result += get_func_list(prop_element.operand.param_list)
-                    result += get_func_list(prop_element.index_expr_list)
+                    result += get_tokens_list(prop_element.operand.param_list, obj_type, filter)
+                result += get_tokens_list(prop_element.index_expr_list, obj_type, filter)
         return result
     def get_text(self):
         text = ""
@@ -371,26 +389,33 @@ class PropertyIndexed:
         self.index_expr_list = [index_expr]
     def apnd(self, index_expr):
         self.index_expr_list += [index_expr]
-    def get_func_list(self):
-        res = []
+    def get_tokens_list(self, obj_type, filter = set()):
+        result = []
         for index_expr in self.index_expr_list:
-            res += index_expr.get_func_list()
-        res += self.operand.get_func_list()
-        return res
+            result += index_expr.get_tokens_list(obj_type, filter)
+        result += self.operand.get_tokens_list(obj_type, filter)
+        return result
     def get_text(self):
         text = self.operand.get_text()
         for expr in self.index_expr_list:
             text += "[" + expr.get_text() + "]"
         return text
+    def get_name(self):
+        return self.operand.get_name()
 
 
 class Identifier:
     id = None
     def __init__(self, id):
         self.id = id
-    def get_func_list(self):
-        return []
+    def get_tokens_list(self, obj_type, filter = set()):
+        result = []
+        if obj_type == "id" and filter and self.id.lower() in filter:
+            result = [(self, self.id)]
+        return result
     def get_text(self):
+        return self.id
+    def get_name(self):
         return self.id
 
 
@@ -400,9 +425,11 @@ class FuncCall:
     def __init__(self, name, param_list):
         self.name = name
         self.param_list = param_list
-    def get_func_list(self):
-        result = [self.name]
-        result += get_func_list(self.param_list)
+    def get_tokens_list(self, obj_type, filter = set()):
+        result = []
+        if obj_type == "function":
+            result = [(self, self.name)]
+        result += get_tokens_list(self.param_list, obj_type, filter)
         return result
     def get_text(self):
         text = self.name + "("
@@ -414,6 +441,8 @@ class FuncCall:
             not_first = True
         text += ")"
         return text
+    def get_name(self):
+        return self.name + "(-)"
 
 
 class Expr:
@@ -424,8 +453,8 @@ class GroupedExpr(Expr):
     expr = None
     def __init__(self, expr):
         self.expr = expr
-    def get_func_list(self):
-        return self.expr.get_func_list()
+    def get_tokens_list(self, obj_type, filter = set()):
+        return self.expr.get_tokens_list(obj_type, filter)
     def get_text(self):
         return "(" + self.expr.get_text() + ")"
 
@@ -438,8 +467,8 @@ class BinaryExpr(Expr):
         self.expr1 = expr1
         self.expr2 = expr2
         self.oper = oper
-    def get_func_list(self):
-        return self.expr1.get_func_list() + self.expr2.get_func_list()
+    def get_tokens_list(self, obj_type, filter = set()):
+        return self.expr1.get_tokens_list(obj_type, filter) + self.expr2.get_tokens_list(obj_type, filter)
     def get_text(self):
         return self.expr1.get_text() + " " + self.oper + " " + self.expr2.get_text()
 
@@ -452,10 +481,10 @@ class QuestionExpr(Expr):
         self.expr = expr
         self.first = first
         self.second = second
-    def get_func_list(self):
-        return self.expr.get_func_list()\
-               + self.first.get_func_list()\
-               + self.second.get_func_list()
+    def get_tokens_list(self, obj_type, filter = set()):
+        return self.expr.get_tokens_list(obj_type, filter)\
+               + self.first.get_tokens_list(obj_type, filter)\
+               + self.second.get_tokens_list(obj_type, filter)
     def get_text(self):
         return "? (" + self.expr.get_text() + ", " + self.first.get_text() + ", " + self.second.get_text() + ")"
 
@@ -466,10 +495,10 @@ class NewExpr(Expr):
     def __init__(self, id = None, param_list = None):
         self.id = id
         self.param_list = param_list
-    def get_func_list(self):
+    def get_tokens_list(self, obj_type, filter = set()):
         res = []
         if self.param_list:
-            res += get_func_list(self.param_list)
+            res += get_tokens_list(self.param_list, obj_type, filter)
         return res
     def get_text(self):
         text = "Новый "
@@ -493,8 +522,8 @@ class UnaryExpr(Expr):
     def __init__(self, op, expr):
         self.op = op
         self.expr = expr
-    def get_func_list(self):
-        return self.expr.get_func_list()
+    def get_tokens_list(self, obj_type, filter = set()):
+        return self.expr.get_tokens_list(obj_type, filter)
     def get_text(self):
         return self.op + " " + self.expr.get_text()
 
@@ -508,8 +537,9 @@ class PreprocIfElseStatement:
         self.if_expression = if_expression
         self.if_statements = if_statements
         self.else_collection = else_collection
-    def get_func_list(self):
-        return get_func_list(self.if_statements) + get_func_list(self.else_collection)
+    def get_tokens_list(self, obj_type, filter = set()):
+        return get_tokens_list(self.if_statements, obj_type, filter) \
+               + get_tokens_list(self.else_collection, obj_type, filter)
     def get_text(self):
         text = "#Если " + self.if_expression.get_text() + " Тогда" + "\n"
         incrase_indent()
@@ -534,8 +564,8 @@ class PreprocElse:
     def __init__(self, statements, condition = None):
         self.condition = condition
         self.statements = statements
-    def get_func_list(self):
-        return get_func_list(self.statements)
+    def get_tokens_list(self, obj_type, filter = set()):
+        return get_tokens_list(self.statements, obj_type, filter)
 
 def get_preproc_expr_text(preproc_expr):
     if type(preproc_expr) == str:
@@ -579,8 +609,8 @@ class PreprocExprNot:
     expr = None
     def __init__(self, expr):
         self.expr = expr
-    def get_func_list(self):
-        return self.expr.get_func_list()
+    def get_tokens_list(self, obj_type, filter = set()):
+        return self.expr.get_tokens_list(obj_type, filter)
     def get_text(self):
         return "Не " + get_preproc_expr_text(self.expr)
 
@@ -589,7 +619,7 @@ class PreprocExprNot:
 
 class SimpleType:
     value = None
-    def get_func_list(self):
+    def get_tokens_list(self, obj_type, filter = set()):
         return []
     def get_text(self):
         return self.value
