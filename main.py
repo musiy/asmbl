@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from objdefs import *
+import copy
 import pickle
 import os.path
 import parser1c
@@ -18,9 +18,11 @@ PROCESSORS_ID = "bf845118-327b-4682-b5c6-285d2a0eb296"
 # Идентификатора начала блока описания форм обработки
 FORMS_BLOCK_ID = "d5b0e5ed-256d-401c-9c36-f630cafd8a62"
 
+PROCESSOR_NAME = "iBank2"
+
 DEBUG_MODE = True
 
-def process1cTree(text, elements, *, pos = 1):
+def process1cTree(text, elements, *, pos=1):
     """
     Рекурсивно обходит описание данных во внутреннем формате 1С и записывает их в структуру вложенных списков.
     Разбор начинается с произвольной позиции начала блока данных - символа '{'.
@@ -52,9 +54,9 @@ def process1cTree(text, elements, *, pos = 1):
         if text[pos] == '\n':
             pass
         elif text[pos] == '{':
-            subList=[]
+            subList = []
             elements.append(subList)
-            pos = process1cTree(text, subList, pos = pos)
+            pos = process1cTree(text, subList, pos=pos)
         elif text[pos] == ',':
             if (token):
                 elements.append(prepareElement(token))
@@ -87,34 +89,38 @@ def process1cTree(text, elements, *, pos = 1):
         else:
             token += text[pos]
 
+
 def loadTextFile(fileName):
     return open(UNPACK_DIR_PATH + "\\" + fileName, encoding='utf-8').read()
 
-def getModulesIds(conf_data):
-    pos = conf_data.find(COMMON_MODULES_ID)
+
+def getModulesIds(conf_data_text):
+    pos = conf_data_text.find(COMMON_MODULES_ID)
     if pos == -1:
         raise Exception("В файле описания структуры метаданных не найдены идентификатор блока общих модулей")
     common_modules_list = []
-    process1cTree(conf_data, common_modules_list, pos=(pos - 1))
+    process1cTree(conf_data_text, common_modules_list, pos=(pos - 1))
     return common_modules_list[2:]
 
+
 def getModules(ids):
-    modules = {} # содержит текст общих модулей, ключ - имя общего модуля, значение - текст модуля
+    modules = {}  # содержит текст общих модулей, ключ - имя общего модуля, значение - текст модуля
     for id in ids:
         module_desc_list = []
         process1cTree(loadTextFile(id), module_desc_list)
         # получаем "чистое" имя модуля, например: "ЗарплатныйПроектКлиент"
         module_name = module_desc_list[1][1][2]
         # загружаем текст модуля
-        modules[module_name] = loadTextFile(id+".0\\text")
+        modules[module_name] = loadTextFile(id + ".0\\text")
     return modules
 
-def getObjectiveEpId(conf_data):
-    pos = conf_data.find(PROCESSORS_ID)
+
+def getObjectiveEpId(conf_data_text):
+    pos = conf_data_text.find(PROCESSORS_ID)
     if pos == -1:
         raise Exception("В файле описания структуры метаданных не найдены идентификатор блока обработок")
     processors_list = []
-    process1cTree(conf_data, processors_list, pos=(pos - 1))
+    process1cTree(conf_data_text, processors_list, pos=(pos - 1))
     objective_ep_id = None
     for id in processors_list[2:]:
         data = loadTextFile(id)
@@ -127,13 +133,13 @@ def getObjectiveEpId(conf_data):
         # Проверяем, что имя обработки - "ОбменСБанком"
         pos += len(id)
         pos += 3
-        if PROCESSOR_NAME == data[pos:pos+len(PROCESSOR_NAME)]:
+        if PROCESSOR_NAME == data[pos:pos + len(PROCESSOR_NAME)]:
             objective_ep_id = id
             break
     return objective_ep_id
 
-def getSubobjects(ep_metadata, id):
 
+def getSubobjects(ep_metadata, id):
     pos = ep_metadata.find(id)
     if pos == -1:
         raise Exception("В файле описания структуры метаданных не найдены идентификатор блока начала списка")
@@ -152,9 +158,18 @@ def getSubobjects(ep_metadata, id):
 root_list = []
 process1cTree(loadTextFile("root"), root_list)
 # rootList[1] - идентификатор файла с описанием конфигурации
-conf_data = loadTextFile(root_list[1])
+conf_data_text = loadTextFile(root_list[1])
 
-modules_ids = getModulesIds(conf_data)
+conf_data_list = []
+process1cTree(conf_data_text, conf_data_list)
+# идентификатор конфигурации
+conf_id = conf_data_list[3][1][1][1][1][1][2]
+
+gl_app_module = dict()
+gl_app_module['ordinary_app_text'] = loadTextFile(conf_id + ".0\\text")
+gl_app_module['managed_app_text'] = loadTextFile(conf_id + ".6\\text")
+
+modules_ids = getModulesIds(conf_data_text)
 
 # содержимое общих модулей
 common_modules = getModules(modules_ids)
@@ -175,13 +190,12 @@ for name in common_modules:
         is_server = True
 
     gl_common_modules_props[name] = {'text': common_modules[name],
-                                     'is_client' : is_client,
+                                     'is_client': is_client,
                                      'is_server': is_server,
                                      'is_client_server': is_client_server}
 
-
 # Получение идентификатора обработки.
-objective_ep_id = getObjectiveEpId(conf_data)
+objective_ep_id = getObjectiveEpId(conf_data_text)
 
 # Информацию о структуре обработки можно найти в файле с именем этого идентификатора.
 ep_metadata = loadTextFile(objective_ep_id)
@@ -198,7 +212,7 @@ if DEBUG_MODE and os.path.isfile('map_form_id_to_name.pickle'):
         gl_form_props = pickle.load(f)
 else:
     # хранит соотвествие имени формы её идентификатору
-    map_form_id_to_name = {id:None for id in objective_ep_forms_ids}
+    map_form_id_to_name = {id: None for id in objective_ep_forms_ids}
     # Свойства формы - текст и признак того, является ли она управляемой/обычной
     gl_form_props = {}
 
@@ -221,11 +235,11 @@ else:
         if is_managed:
             form_struct = []
             # Метаданные и код управляемой формы можно получить из файла id+'.0'
-            pos = process1cTree(loadTextFile(form_id+'.0'), form_struct)
+            pos = process1cTree(loadTextFile(form_id + '.0'), form_struct)
             form_text = form_struct[2]
         else:
             # Код обычной формы можно получить из файла id+'.0/module'
-            form_text = loadTextFile(form_id+'.0/module')
+            form_text = loadTextFile(form_id + '.0/module')
         gl_form_props[form_name] = {'text': form_text, 'is_managed': is_managed}
 
     if DEBUG_MODE:
@@ -233,6 +247,7 @@ else:
             pickle.dump(map_form_id_to_name, f)
         with open('gl_form_props.pickle', 'wb') as f:
             pickle.dump(gl_form_props, f)
+
 
 ############################################################################################
 ## На даном этапе модули загружены и следущий большой этап - преобразование и перенос текста
@@ -251,9 +266,10 @@ def addSemicolonAfterPreproc(module_text):
         pos = module_text.find('#КонецЕсли', pos)
         if pos == -1:
             break
-        module_text = module_text[0:pos+10] + '\n;' + module_text[pos+10:]
+        module_text = module_text[0:pos + 10] + '\n;' + module_text[pos + 10:]
         pos += 10 + 3;
     return module_text
+
 
 for name in gl_form_props:
     gl_form_props[name]['text'] = addSemicolonAfterPreproc(gl_form_props[name]['text'])
@@ -265,12 +281,22 @@ for name in gl_common_modules_props:
 #          Так же выполняется удаление областей.
 #          Тут же проивзодится получение синтаксической структуры модулей (см. parse).
 
+# todo список вырезаемых областей типа ["DEBUG"] должен параметризоваться
+EXCLUDE_AREAS = ["DEBUG", "FILE_OPERATIONS_LOAD", "PRODUCT_UA", "DEBUG_FOR_CONF_DEBUGGING", "TEST"]
+
+preproc = preproc1c.Preprocessor1C(gl_app_module["ordinary_app_text"])
+gl_app_module["ordinary_app_text"] = preproc.execute("ТолстыйКлиентОбычноеПриложение", EXCLUDE_AREAS)
+gl_app_module["ordinary_app_struct"] = parser1c.parser.parse(gl_app_module["ordinary_app_text"])
+
+preproc = preproc1c.Preprocessor1C(gl_app_module["managed_app_text"])
+gl_app_module["managed_app_text"] = preproc.execute("ТонкийКлиент", EXCLUDE_AREAS)
+gl_app_module["managed_app_struct"] = parser1c.parser.parse(gl_app_module["managed_app_text"])
+
 for name in gl_form_props:
     context = "ТонкийКлиент" if gl_form_props[name]['is_managed'] else "ТолстыйКлиентОбычноеПриложение"
     # Разрешить препроцессор, избавиться от областей
     preproc = preproc1c.Preprocessor1C(gl_form_props[name]['text'])
-    # todo список вырезаемых областей типа ["DEBUG"] должен параметризоваться
-    new_text = preproc.execute(context, ["DEBUG"], ["НаКлиенте"])
+    new_text = preproc.execute(context, EXCLUDE_AREAS, ["НаКлиенте"])
     gl_form_props[name]['text'] = new_text
     # Получить синтаксическую структуру модуля
     gl_form_props[name]['struct'] = parser1c.parser.parse(new_text)
@@ -282,12 +308,10 @@ else:
     for name in gl_common_modules_props:
         # Разрешить препроцессор, избавиться от областей
         preproc = preproc1c.Preprocessor1C(gl_common_modules_props[name]['text'])
-        # todo список вырезаемых областей типа ["DEBUG"] должен параметризоваться
-
         try:
             module = gl_common_modules_props[name]
-            module['text_managed'] = preproc.execute("ТонкийКлиент", ["DEBUG"], ["НаКлиенте"])
-            module['text_ordinary'] = preproc.execute("ТолстыйКлиентОбычноеПриложение", ["DEBUG"], ["НаКлиенте"])
+            module['text_managed'] = preproc.execute("ТонкийКлиент", EXCLUDE_AREAS, ["НаКлиенте"])
+            module['text_ordinary'] = preproc.execute("ТолстыйКлиентОбычноеПриложение", EXCLUDE_AREAS, ["НаКлиенте"])
 
             module['struct_managed'] = parser1c.parser.parse(module['text_managed'])
             module['struct_ordinary'] = parser1c.parser.parse(module['text_ordinary'])
@@ -298,24 +322,37 @@ else:
         with open('gl_common_modules_props.pickle', 'wb') as f:
             pickle.dump(gl_common_modules_props, f)
 
+
 # Шаг №3. Формирование списка вызовов для каждой функции каждой формы и модуля
 #          Эти списки будут использованы на следующем этапе для формирования модулей форм.
 #          Структура списка следующая:
 #            имя_формы.имя_функции: {имя_локальной_функции_формы, .., имя_модуля.имя_функции}
 #            имя_модуля.имя_функции: {имя_локальной_функции_модуля, .., имя_модуля.имя_функции}
 
-#exit (0)
+# exit (0)
 
-def getStatementCallList(statements):
+def getStatementCallList(statements, obj_type = "function", filter = set()):
+    """
+    Обходит список инструкций (statements) и получает список вызываемых функций.
+    Составляется общий список всех обращений к функциям во всех инструкциях.
+
+    @param statements (struct.<инструкция верхнего уровня>): инструкции из процедуры/функции для обхода
+    @return (list): список обращений к функциям, где каждый элемент - кортеж.
+                    Каждый кортеж состоит из двух элементов: ссылка на структуру вызова, строка вызова.
+                    Например: (<strct1c.DottedExpression object at 0x05BB74F0>,
+                              'iBank2_СопоставлениеКлиентСервер.ПолучитьЦветТекстаРучнойКорректировки')
+
+    """
     result = []
     for st in statements:
-        func_list = st.get_func_list()
+        func_list = st.get_tokens_list(obj_type, filter)
         result += func_list
     return result
 
+
 # todo переносить вручную функции
-#мсвИменаФункций.Добавить("СоздатьОбъектОписанияОповещения");
-#мсвИменаФункций.Добавить("ПолучитьОписаниеОповещенияСВызовомФункции");
+# мсвИменаФункций.Добавить("СоздатьОбъектОписанияОповещения");
+# мсвИменаФункций.Добавить("ПолучитьОписаниеОповещенияСВызовомФункции");
 
 # Общий список всех процедур и функций во всех модулях.
 # В соотвествии имени каждой функции ставится её описание (структура) - для дальнейшей обработки и переноса в форму.
@@ -349,21 +386,29 @@ def get_proc_func_call_list(proc_func, module_type, module_name):
     @return (set): список вызываемый функций с полным путем к ним: CommonModule.<имя модуля>.<имя процедуры/функции>
     '''
     global gl_proc_funcs
-    func_list = getStatementCallList(proc_func.body.statements)
+    # todo удалить
+    if proc_func.name.find('ИнициализоватьТаблицыФормы') >= 0:
+        a = 1
+
     # все функции, в т.ч. встроенные и функции объектов
-    func_set_all = {x for x in func_list}
-    # только функции модулей
-    func_set = set()
-    for func_name in func_set_all:
+    func_list = getStatementCallList(proc_func.body.statements)
+    result = dict()
+    for func_rec in func_list:
+        func_name = func_rec[1]
         if func_name.find('.') >= 0:
             # вызов разделенный точкой - обращение к функции другого общего модуля
             full_name = "CommonModule" + "." + func_name
         else:
             # обращение к функции этого модуля
             full_name = module_type + "." + module_name + "." + func_name
+        # отбираем только функции модулей (без встроенных функций)
         if gl_proc_funcs.get(full_name, None):
-            func_set.add(full_name)
-    return func_set
+            # в функции может быть несколько обращений к одной и тойже (другой) функции
+            val = result.get(full_name, [])
+            val.append(func_rec[0])
+            result[full_name] = val
+    return result
+
 
 # Содержит список вызовов для каждой процедуры/функции во всех модулях и во всех формах
 gl_func_calls = {}
@@ -374,43 +419,98 @@ for module_name in gl_common_modules_props:
     struct = gl_common_modules_props[module_name]['struct_managed']
     for proc_func in struct.proc_func_list:
         key = "CommonModule." + module_name + "." + proc_func.name
-        func_set = get_proc_func_call_list(proc_func, "CommonModule", module_name)
-        gl_func_calls[key] = func_set
+        sub_calls_dict = get_proc_func_call_list(proc_func, "CommonModule", module_name)
+        gl_func_calls[key] = sub_calls_dict
 
 # цикл заполняет gl_func_calls по процедурам и функциями форм
 for form_name in gl_form_props:
-    if form_name.lower().find("обычная")>= 0:
+    if form_name.lower().find("обычная") >= 0:
         # это управляемая форма todo
         continue
     form_struct = gl_form_props[form_name]['struct']
     for proc_func in form_struct.proc_func_list:
         key = "FormManaged." + form_name + "." + proc_func.name
-        func_set = get_proc_func_call_list(proc_func, "FormManaged", form_name)
-        gl_func_calls[key] = func_set
+        sub_calls_dict = get_proc_func_call_list(proc_func, "FormManaged", form_name)
+        gl_func_calls[key] = sub_calls_dict
 
 # Шаг 4. Перенос функций из общих модулей в модули формы.
 #        todo сперва перенос в основную управляемую форму
 
-# содержит список функций для переноса в освновную форму / модуль
+# Содержит список функций для переноса в освновную форму / модуль
 gl_proc_funcs_to_move_primary = set()
 
+key_managed_main_form = "FormManaged.Основная"
+
+
 def fill_main_module_calls(full_func_name):
+    """
+    Рекурсивно обходит всё дерево вызовов из переданной full_func_name и добавляет
+    каждый вызов в gl_proc_funcs_to_move_primary.
+    На самом верхнем уровне функция вызывается для каждой процедуры/функции модуля формы.
+    Далее вызов продолжается для каждого дочернего вызова и т.д. до последнего вызова.
+    @param full_func_name (str): имя процедуры/функции в формате CommonModule.<ИмяМодуля>.<ИмяПроцедурыФункции>
+    @return: None
+    """
+    # объявить переменную как глобальную, т.к. производится модификация
     global gl_proc_funcs_to_move_primary
+
+    # получить вызовы из full_func_name
     sub_calls = gl_func_calls.get(full_func_name)
+
     for func_name in sub_calls:
         if func_name in gl_proc_funcs_to_move_primary:
+            # если подвызов уже добавлен в функции для переноса - пропускаем, что бы не было зацикливания
             pass
         else:
-            gl_proc_funcs_to_move_primary.add(func_name)
+            if func_name[:len(key_managed_main_form)] != key_managed_main_form:
+                # не нужно добавлять в список процедуры и функций, которые уже есть в модуле
+                gl_proc_funcs_to_move_primary.add(func_name)
             fill_main_module_calls(func_name)
     pass
 
-key_managed_main_form = "FormManaged.Основная"
 
 for full_func_name in gl_func_calls:
     if full_func_name[:len(key_managed_main_form)] == key_managed_main_form:
         fill_main_module_calls(full_func_name)
 
+###################################################################################################
+# Необходимо обновить список переносимых функций вызываемых особым образом, через Выполнить()
+# Для этого необходимо проверить все обращения к функциям ПолучитьОписаниеОповещенияСВызовомФункции
+# и СоздатьОбъектОписанияОповещения и собрать их названия.
+# Кроме того, из за способа вызова эти функции должны оставаться экспортными.
+
+spec_replace_params = {"ПолучитьОписаниеОповещенияСВызовомФункции", "СоздатьОбъектОписанияОповещения"}
+spec_replace_params = {name.lower() for name in spec_replace_params}
+
+# Функций, которые вызываются через Выполнить(..).
+# Для них нельзя снимать признак экспортности.
+gl_func_to_add_spec = set()
+
+for full_func_name in gl_proc_funcs_to_move_primary:
+    func_proc_desc = gl_proc_funcs[full_func_name]
+    parts = full_func_name.split(".")
+    sub_call_list = get_proc_func_call_list(func_proc_desc, parts[0], parts[1])
+
+    for called_func_name, calls in sub_call_list.items():
+        called_func_name_short = called_func_name.split(".")[2]
+        if called_func_name_short.lower() in spec_replace_params:
+            for call in calls:
+                if isinstance(call, strct1c.FuncCall):
+                    func_name = call.param_list[0].value[0]
+                    module_name = call.param_list[1].value[0]
+                elif isinstance(call, strct1c.DottedExpression):
+                    func_name = call.properties_list[1].param_list[0].value[0]
+                    module_name = call.properties_list[1].param_list[1].value[0]
+                else:
+                    raise Exception("Необработанный вызов : " + call)
+                gl_func_to_add_spec.add("CommonModule." + module_name + "." + func_name)
+
+for full_func_name in gl_func_to_add_spec:
+    if not full_func_name in gl_proc_funcs_to_move_primary:
+        gl_proc_funcs_to_move_primary.add(full_func_name)
+        fill_main_module_calls(full_func_name)
+
+###################################################################################################
 # Cодержит список функций для переноса во вспомогательные формы
 #   ключ - имя формы,
 #   значение - список функций для переноса
@@ -426,7 +526,8 @@ gl_proc_funcs_to_move_secondary = {}
 #   значение - имя функции которую следует заменить
 gl_replace_calls_to_main_module = {}
 
-def fill_secondary_form_calls(form_name, full_func_name, is_server_chain = False):
+
+def fill_secondary_form_calls(form_name, full_func_name, is_server_chain=False):
     """
     Вычисляет процедуры и функции для переноса во вспомогательную форму.
     При этом, заполняет gl_proc_funcs_to_move_secondary - список функций для переноса.
@@ -458,7 +559,7 @@ def fill_secondary_form_calls(form_name, full_func_name, is_server_chain = False
         module_props = gl_common_modules_props[parts[1]]
         new_is_server_chain = module_props['is_server']
         if (module_props['is_client'] or module_props['is_client_server']) \
-            and full_func_name in gl_proc_funcs_to_move_primary:
+                and full_func_name in gl_proc_funcs_to_move_primary:
             if full_func_name in gl_replace_calls_to_main_module[form_name]:
                 return
             gl_replace_calls_to_main_module[form_name].add(full_func_name)
@@ -471,6 +572,7 @@ def fill_secondary_form_calls(form_name, full_func_name, is_server_chain = False
         # sub_call это обращение к функции, например:
         #   CommonModule.System_ЗарплатныйПроект.ВыборПлатежногоПоручения_ПриСозданииНаСервере
         fill_secondary_form_calls(form_name, sub_call, new_is_server_chain)
+
 
 KEY_FORM_MANAGED = "FormManaged"
 for full_func_name in gl_func_calls:
@@ -518,23 +620,53 @@ for form_name in gl_replace_calls_to_main_module:
     for full_func_name in gl_replace_calls_to_main_module[form_name]:
         gl_main_module_export_functions.add(full_func_name)
 
+for full_func_name in gl_func_to_add_spec:
+    gl_main_module_export_functions.add(full_func_name)
+
+def replace_common_module_calls(call_list):
+    """
+    Выполняет замену обращений к общим модулям в функции full_func_name на вызовы локальных процедур/функций.
+    Например:
+        "Subsys_ОбщегоНазначенияКлиентСервер.Проверить(..)" => "Проверить(..)"
+    @param call_list (str): список для замены
+    @return: None
+    """
+    for called_func_name, call_list in call_list.items():
+        # из функции может быть несколько обращений к другой функции
+        for call in call_list:
+            if isinstance(call, strct1c.DottedExpression):
+                call.properties_list.pop(0)
+            elif isinstance(call, strct1c.PropertyIndexed):
+                # todo обработать ситуацию f()[1][2]
+                raise Exception("Вызов f()[expr] не обработан: " + called_func_name)
+
+# Описание основной управляемой формы
+main_form_proc_func_list = gl_form_props['Основная']['struct'].proc_func_list
+
+# Удаление обращений из процедур/функций формы (обработчиков)
+for func_proc_desc in main_form_proc_func_list:
+    full_func_name = key_managed_main_form + "." + func_proc_desc.name
+    sub_call_list = gl_func_calls[full_func_name]
+    replace_common_module_calls(sub_call_list)
+
+#########################################################################################################
 # Перенос в основную форму.
 # При переносе функций во вспомогательную форму необходимо добавить директиву.
 # Директива зависит от контекста исполнения общего модуля:
 #   клиент        - &НаКлиенте
 #   сервер        - &НаСервереБезКонтекста
 #   клиент-сервер - &НаКлиентеНаСервереБезКонтекста
-main_form = gl_form_props['Основная']
+
 for full_func_name in gl_proc_funcs_to_move_primary:
-    #main_form.struct.proc_func_list
-    func_proc_desc = gl_proc_funcs[full_func_name]
+    func_proc_desc = copy.deepcopy(gl_proc_funcs[full_func_name])
 
     parts = full_func_name.split(".")
     module_properties = gl_common_modules_props[parts[1]]
+
     if module_properties['is_client']:
         func_proc_desc.directive = "&НаКлиенте"
     elif module_properties['is_server']:
-        func_proc_desc.directive = "&НаСервере"
+        func_proc_desc.directive = "&НаСервереБезКонтекста"
     elif module_properties['is_client_server']:
         func_proc_desc.directive = "&НаКлиентеНаСервереБезКонтекста"
     else:
@@ -543,12 +675,56 @@ for full_func_name in gl_proc_funcs_to_move_primary:
     if not full_func_name in gl_main_module_export_functions:
         # нет обращения из вспомогательной формы, т.е. есть только в основной форме
         func_proc_desc.is_export = False
+    main_form_proc_func_list.append(func_proc_desc)
+    if parts[2] == "ОткрытьФормуПлатежногоПоручения":
+        a = 1
+    sub_call_list = get_proc_func_call_list(func_proc_desc, parts[0], parts[1])
+    replace_common_module_calls(sub_call_list)
+    for called_func_name, calls in sub_call_list.items():
+        called_func_name_short = called_func_name.split(".")[2]
+        if called_func_name_short.lower() in spec_replace_params:
+            for call in calls:
+                if isinstance(call, strct1c.FuncCall):
+                    call.param_list[1] = strct1c.Identifier('ЭтаФорма')
+                else:
+                    call.properties_list[0].param_list[1] = strct1c.Identifier('ЭтаФорма')
 
-    a = 1
     pass
 
-# При переносе функций во вспомогательную форму необходимо удалить признак экспортной функции.
+#########################################################################################################
+# Замена ссылок на некоторые глобальные переменные из
+# todo соотвествие для замен брать из файла настроек
 
+replacements = {"гл_iBank2_ИмяФайлаОбработки": "Объект.КэшДанных.ИмяОбработки",
+                "гл_iBank2_РежимРаботы": "Объект.КэшДанных.РежимРаботы"}
+
+replacements = { var.lower(): replace_str for var, replace_str in replacements.items()}
+filter={x for x in replacements}
+
+id_call_list = []
+for func_proc_desc in main_form_proc_func_list:
+    id_call_list += getStatementCallList(func_proc_desc.body.statements, obj_type="id", filter=filter)
+
+for rec in id_call_list:
+    id_name = rec[1]
+    if id_name.lower() in replacements and isinstance(rec[0], strct1c.Identifier):
+        rec[0].id = replacements[id_name.lower()]
+
+########################################################################################################
+# перенести в модуль основной формы глобальные переменные
+for gl_var_desc in gl_app_module["managed_app_struct"].global_vars:
+    if PROCESSOR_NAME.lower() in gl_var_desc.vars_list[0].name.lower():
+        gl_var_desc_new = copy.deepcopy(gl_var_desc)
+        gl_var_desc_new.directive = "&НаКлиенте"
+        gl_form_props['Основная']['struct'].global_vars.append(gl_var_desc_new)
+
+main_form_text = strct1c.get_text(gl_form_props['Основная']['struct'])
+
+##############################################################################################
+# Перенос во вспомогательную основную форму.
+# При переносе функций во вспомогательную форму необходимо удалить признак экспортной функции.
+# gl_proc_funcs_to_move_secondary
+# gl_replace_calls_to_main_module
 
 # Во вспомогательных управляемых формах
 # а) добавить переменную модуля формы ОсновнаяФорма
