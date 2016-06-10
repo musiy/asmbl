@@ -508,5 +508,6 @@ parser = yacc.yacc()
 if __name__ == '__main__':
     data = open("samples/sample.1c", encoding='utf-8').read()
     result = parser.parse(data)
+    strct1c.get_tokens_list(result.statements_list, obj_type="function", filter = set())
     print(strct1c.get_text(result))
     pass
