@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-_gl_indend = None
+_gl_indend = 0
 
 def set_indent(indent):
     global _gl_indend
@@ -151,7 +151,7 @@ class Statement:
     def __init__(self): pass
 
 class StatementAssignment(Statement):
-    # for expression like 'a = 1 + 2' and 'f()'
+    # expression like 'a = 1 + 2'
     property = None
     expr = None
     def __init__(self, property, expr = None):
@@ -339,17 +339,17 @@ class DottedExpression:
     def get_tokens_list(self, obj_type, filter = set()):
         result = []
         # расчитываем на вызов <имя модуля>.<вызов функции>
-        if obj_type == "function" and len(self.properties_list) >= 2:
-            # может быть вызов вида:
-            #   Subsys_ОбщегоНазначенияКлиентСервер.ПолучитьРеквизитОбъекта().ИмяСвойство
-            if isinstance(self.properties_list[0], Identifier) and isinstance(self.properties_list[1], FuncCall):
+        if obj_type == "function" and len(self.properties_list) > 1:
+            # вызов вида:
+            #   ИмяОбщегоМодуля.ПолучитьРеквизитОбъекта().ИмяСвойство
+            if isinstance(self.properties_list[0], Identifier) and self.properties_list[1].is_function():
                 # имя_модуля.имя_функции(<параметры>)
-                result += [(self, self.properties_list[0].id + "." + self.properties_list[1].name)]
-            elif isinstance(self.properties_list[0], Identifier) \
-                    and isinstance(self.properties_list[1], PropertyIndexed) \
-                    and isinstance(self.properties_list[1].operand, FuncCall):
-                # имя_модуля.имя_функции(<параметры>)[expr][expr]
-                result += [(self, self.properties_list[0].id + "." + self.properties_list[1].operand.name)]
+                result += [(self, self.properties_list[0].id + "." + self.properties_list[1].get_name())]
+            else:
+                for prop_element in self.properties_list:
+                    if prop_element.is_function():
+                        result += [(self, prop_element.get_name())]
+
         elif obj_type == "id" and filter:
             # для идентификаторов обязательно должен быть установлен фильтр
             id_was_found = False
@@ -402,21 +402,10 @@ class PropertyIndexed:
         return text
     def get_name(self):
         return self.operand.get_name()
-
-
-class Identifier:
-    id = None
-    def __init__(self, id):
-        self.id = id
-    def get_tokens_list(self, obj_type, filter = set()):
-        result = []
-        if obj_type == "id" and filter and self.id.lower() in filter:
-            result = [(self, self.id)]
-        return result
-    def get_text(self):
-        return self.id
-    def get_name(self):
-        return self.id
+    def set_name(self, name):
+        self.operand.set_name(name)
+    def is_function(self):
+        return self.operand.is_function()
 
 
 class FuncCall:
@@ -442,7 +431,30 @@ class FuncCall:
         text += ")"
         return text
     def get_name(self):
-        return self.name + "(-)"
+        return self.name
+    def set_name(self, name):
+        self.name = name
+    def is_function(self):
+        return True
+
+
+class Identifier:
+    id = None
+    def __init__(self, id):
+        self.id = id
+    def get_tokens_list(self, obj_type, filter = set()):
+        result = []
+        if obj_type == "id" and filter and self.id.lower() in filter:
+            result = [(self, self.id)]
+        return result
+    def get_text(self):
+        return self.id
+    def get_name(self):
+        return self.id
+    def set_name(self, name):
+        self.id = name
+    def is_function(self):
+        return False
 
 
 class Expr:
@@ -501,18 +513,18 @@ class NewExpr(Expr):
             res += get_tokens_list(self.param_list, obj_type, filter)
         return res
     def get_text(self):
-        text = "Новый "
+        text = "Новый"
         if self.id:
-            text += self.id + " ";
-        text += "("
+            text += " " + self.id ;
         if self.param_list:
+            text += " ("
             not_first = False
             for param in self.param_list:
                 if not_first:
                     text += ", "
                 text += param.get_text()
                 not_first = True
-        text += ")"
+            text += ")"
         return text
 
 
