@@ -38,14 +38,37 @@ def get_tokens_list(struct_list, obj_type, filter):
         func_list += x.get_tokens_list(obj_type, filter)
     return func_list
 
+def set_owner(subject, self):
+    if not subject or isinstance(subject, str) or isinstance(subject, int):
+        return
+    if isinstance(subject, list):
+        for x in subject:
+            x._owner_ = self
+    else:
+        subject._owner_ = self
+
+def replace_object(subject_list, obj_from, obj_to):
+    for i in range(len(subject_list)):
+        if subject_list[i] == obj_from:
+            subject_list[i] = obj_to
+
+#def replace_class_object_field(self, )
+
 class Module:
-    global_vars = None
-    proc_func_list = None
+    global_vars_list = None
+    proc_funcs_list = None
     statements_list = None
-    def __init__(self, statements_list, proc_func_list = None, global_vars = None):
+    def __init__(self, statements_list, proc_funcs_list = None, global_vars_list = None):
         self.statements_list = statements_list
-        self.proc_func_list = proc_func_list
-        self.global_vars = global_vars
+        self.proc_funcs_list = proc_funcs_list
+        self.global_vars_list = global_vars_list
+        set_owner(self.statements_list, self)
+        set_owner(self.proc_funcs_list, self)
+        set_owner(self.global_vars_list, self)
+    def replace_obj(self, obj_from, obj_to):
+        replace_object(self.statements_list, obj_from, obj_to)
+        replace_object(self.proc_funcs_list, obj_from, obj_to)
+        replace_object(self.global_vars_list, obj_from, obj_to)
     def get_text(self):
         text = get_op_list_text(self.global_vars) + "\n"
         text += get_op_list_text(self.proc_func_list, False) + "\n"
@@ -57,7 +80,10 @@ class VariablesDeclaration:
     vars_list = None
     def __init__(self, vars_list, directive = None):
         self.vars_list = vars_list
+        set_owner(self.vars_list, self)
         self.directive = directive
+    def replace_obj(self, obj_from, obj_to):
+        replace_object(self.vars_list, obj_from, obj_to)
     def get_text(self):
         text = ""
         if self.directive:
@@ -97,6 +123,12 @@ class Function:
         self.name = name
         self.vars_list = vars_list
         self.body = body
+        set_owner(self.vars_list, self)
+        set_owner(self.body, self)
+    def replace_obj(self, obj_from, obj_to):
+        replace_object(self.vars_list, obj_from, obj_to)
+        if self.body == obj_from:
+            self.body = obj_to
     def get_text(self):
         text = self.directive + "\n"
         text += ("Функция" if self.is_function else "Процедура") + " "
@@ -115,6 +147,7 @@ class Function:
 
         text += "КонецФункции" if self.is_function else "КонецПроцедуры"
         return text
+
 
 class FuncVarInitDecl:
     is_val = None
@@ -138,6 +171,11 @@ class FuncBody:
     def __init__(self, vars_decls_list = None, statements = None):
         self.vars_decls_list = vars_decls_list
         self.statements = statements
+        set_owner(self.vars_decls_list, self)
+        set_owner(self.statements, self)
+    def replace_obj(self, obj_from, obj_to):
+        replace_object(self.vars_decls_list, obj_from, obj_to)
+        replace_object(self.statements, obj_from, obj_to)
     def get_tokens_list(self, obj_type, filter = set()):
         return get_tokens_list(self.statements, obj_type, filter)
     def get_text(self):
@@ -157,6 +195,13 @@ class StatementAssignment(Statement):
     def __init__(self, property, expr = None):
         self.property = property
         self.expr = expr
+        set_owner(self.property, self)
+        set_owner(self.expr, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.property == obj_from:
+            self.property = obj_to
+        if self.expr == obj_from:
+            self.expr = obj_to
     def get_tokens_list(self, obj_type, filter = set()):
         return self.property.get_tokens_list(obj_type, filter) + self.expr.get_tokens_list(obj_type, filter)
     def get_text(self):
@@ -164,13 +209,17 @@ class StatementAssignment(Statement):
 
 
 class StatementFuncCall(Statement):
-    func_call_path = None
-    def __init__(self, func_call_path):
-        self.func_call_path = func_call_path
+    statement = None
+    def __init__(self, statement):
+        self.statement = statement
+        set_owner(self.statement, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.statement == obj_from:
+            self.statement = obj_to
     def get_tokens_list(self, obj_type, filter = set()):
-        return self.func_call_path.get_tokens_list(obj_type, filter)
+        return self.statement.get_tokens_list(obj_type, filter)
     def get_text(self):
-        return self.func_call_path.get_text()
+        return self.statement.get_text()
 
 class TryStatement(Statement):
     try_statements = None
@@ -178,6 +227,11 @@ class TryStatement(Statement):
     def __init__(self, try_statements, except_statements):
         self.try_statements = try_statements
         self.except_statements = except_statements
+        set_owner(self.try_statements, self)
+        set_owner(self.except_statements, self)
+    def replace_obj(self, obj_from, obj_to):
+        replace_object(self.try_statements, obj_from, obj_to)
+        replace_object(self.except_statements, obj_from, obj_to)
     def get_tokens_list(self, obj_type, filter = set()):
         return get_tokens_list(self.try_statements, obj_type, filter) \
                + get_tokens_list(self.except_statements, obj_type, filter)
@@ -200,6 +254,10 @@ class LabeledStatement(Statement):
     def __init__(self, label_name, statement):
         self.label_name = label_name
         self.statement = statement
+        set_owner(self.statement, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.statement == obj_from:
+            self.statement = obj_to
     def get_tokens_list(self, obj_type, filter = set()):
         return self.statement.get_tokens_list(obj_type, filter)
     def get_text(self):
@@ -216,6 +274,14 @@ class IfElseStatement(Statement):
         self.if_expression = if_expression
         self.if_statements = if_statements
         self.else_collection = else_collection
+        set_owner(self.if_expression, self)
+        set_owner(self.if_statements, self)
+        set_owner(self.else_collection, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.if_expression == obj_from:
+            self.if_expression = obj_to
+        replace_object(self.if_statements, obj_from, obj_to)
+        replace_object(self.else_collection, obj_from, obj_to)
     def get_tokens_list(self, obj_type, filter = set()):
         return self.if_expression.get_tokens_list(obj_type, filter) \
                + get_tokens_list(self.if_statements, obj_type, filter) \
@@ -245,6 +311,12 @@ class ElseStatement:
     def __init__(self, statements, condition = None):
         self.condition = condition
         self.statements = statements
+        set_owner(self.condition, self)
+        set_owner(self.statements, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.condition == obj_from:
+            self.condition = obj_to
+        replace_object(self.statements, obj_from, obj_to)
     def get_tokens_list(self, obj_type, filter = set()):
         result = []
         if (self.condition):
@@ -259,6 +331,12 @@ class ForEachBlock(Statement):
         self.id_name = id_name
         self.expression = expression
         self.statements = statements
+        set_owner(self.expression, self)
+        set_owner(self.statements, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.expression == obj_from:
+            self.expression = obj_to
+        replace_object(self.statements, obj_from, obj_to)
     def get_tokens_list(self, obj_type, filter = set()):
         return self.expression.get_tokens_list(obj_type, filter) \
                + get_tokens_list(self.statements, obj_type, filter)
@@ -281,6 +359,15 @@ class ForBlock(Statement):
         self.expression_start = expression_start
         self.expression_end = expression_end
         self.statements = statements
+        set_owner(self.expression_start, self)
+        set_owner(self.expression_end, self)
+        set_owner(self.statements, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.expression_start == obj_from:
+            self.expression_start = obj_to
+        if self.expression_end == obj_from:
+            self.expression_end = obj_to
+        replace_object(self.statements, obj_from, obj_to)
     def get_tokens_list(self, obj_type, filter = set()):
         return self.expression_start.get_tokens_list(obj_type, filter) \
                + self.expression_end.get_tokens_list(obj_type, filter) \
@@ -301,6 +388,12 @@ class WhileBlock(Statement):
     def __init__(self, expression, statements):
         self.expression = expression
         self.statements = statements
+        set_owner(self.expression, self)
+        set_owner(self.statements, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.expression == obj_from:
+            self.expression = obj_to
+        replace_object(self.statements, obj_from, obj_to)
     def get_tokens_list(self, obj_type, filter = set()):
         return self.expression.get_tokens_list(obj_type, filter) \
                + get_tokens_list(self.statements, obj_type, filter)
@@ -319,6 +412,10 @@ class JumpStatemets(Statement):
     def __init__(self, key_word, second_param = None):
         self.key_word = key_word
         self.second_param = second_param
+        set_owner(self.second_param, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.second_param == obj_from:
+            self.second_param = obj_to
     def get_tokens_list(self, obj_type, filter = set()):
         result = []
         if self.second_param:
@@ -334,8 +431,11 @@ class DottedExpression:
     properties_list = None
     def __init__(self, property):
         self.properties_list = [property]
+        set_owner(self.properties_list, self)
     def append(self, property):
         self.properties_list += [property]
+    def replace_obj(self, obj_from, obj_to):
+        replace_object(self.properties_list, obj_from, obj_to)
     def get_tokens_list(self, obj_type, filter = set()):
         result = []
         # расчитываем на вызов <имя модуля>.<вызов функции>
@@ -387,8 +487,14 @@ class PropertyIndexed:
     def __init__(self, operand, index_expr = None):
         self.operand = operand
         self.index_expr_list = [index_expr]
+        set_owner(self.operand, self)
+        set_owner(self.index_expr_list, self)
     def apnd(self, index_expr):
         self.index_expr_list += [index_expr]
+    def replace_obj(self, obj_from, obj_to):
+        if self.operand == obj_from:
+            self.operand = obj_to
+        replace_object(self.index_expr_list, obj_from, obj_to)
     def get_tokens_list(self, obj_type, filter = set()):
         result = []
         for index_expr in self.index_expr_list:
@@ -414,6 +520,9 @@ class FuncCall:
     def __init__(self, name, param_list):
         self.name = name
         self.param_list = param_list
+        set_owner(self.param_list, self)
+    def replace_obj(self, obj_from, obj_to):
+        replace_object(self.param_list, obj_from, obj_to)
     def get_tokens_list(self, obj_type, filter = set()):
         result = []
         if obj_type == "function":
@@ -465,6 +574,10 @@ class GroupedExpr(Expr):
     expr = None
     def __init__(self, expr):
         self.expr = expr
+        set_owner(self.expr, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.expr == obj_from:
+            self.expr = obj_to
     def get_tokens_list(self, obj_type, filter = set()):
         return self.expr.get_tokens_list(obj_type, filter)
     def get_text(self):
@@ -479,6 +592,13 @@ class BinaryExpr(Expr):
         self.expr1 = expr1
         self.expr2 = expr2
         self.oper = oper
+        set_owner(self.expr1, self)
+        set_owner(self.expr2, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.expr1 == obj_from:
+            self.expr1 = obj_to
+        if self.expr2 == obj_from:
+            self.expr2 = obj_to
     def get_tokens_list(self, obj_type, filter = set()):
         return self.expr1.get_tokens_list(obj_type, filter) + self.expr2.get_tokens_list(obj_type, filter)
     def get_text(self):
@@ -493,6 +613,16 @@ class QuestionExpr(Expr):
         self.expr = expr
         self.first = first
         self.second = second
+        set_owner(self.expr, self)
+        set_owner(self.first, self)
+        set_owner(self.second, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.expr == obj_from:
+            self.expr = obj_to
+        if self.first == obj_from:
+            self.first = obj_to
+        if self.second == obj_from:
+            self.second = obj_to
     def get_tokens_list(self, obj_type, filter = set()):
         return self.expr.get_tokens_list(obj_type, filter)\
                + self.first.get_tokens_list(obj_type, filter)\
@@ -507,6 +637,9 @@ class NewExpr(Expr):
     def __init__(self, id = None, param_list = None):
         self.id = id
         self.param_list = param_list
+        set_owner(self.param_list, self)
+    def replace_obj(self, obj_from, obj_to):
+        replace_object(self.param_list, obj_from, obj_to)
     def get_tokens_list(self, obj_type, filter = set()):
         res = []
         if self.param_list:
@@ -534,6 +667,10 @@ class UnaryExpr(Expr):
     def __init__(self, op, expr):
         self.op = op
         self.expr = expr
+        set_owner(self.expr, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.expr == obj_from:
+            self.expr = obj_to
     def get_tokens_list(self, obj_type, filter = set()):
         return self.expr.get_tokens_list(obj_type, filter)
     def get_text(self):
@@ -549,6 +686,14 @@ class PreprocIfElseStatement:
         self.if_expression = if_expression
         self.if_statements = if_statements
         self.else_collection = else_collection
+        set_owner(self.if_expression, self)
+        set_owner(self.if_statements, self)
+        set_owner(self.else_collection, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.if_expression == obj_from:
+            self.if_expression = obj_to
+        replace_object(self.if_statements, obj_from, obj_to)
+        replace_object(self.else_collection, obj_from, obj_to)
     def get_tokens_list(self, obj_type, filter = set()):
         return get_tokens_list(self.if_statements, obj_type, filter) \
                + get_tokens_list(self.else_collection, obj_type, filter)
@@ -576,6 +721,12 @@ class PreprocElse:
     def __init__(self, statements, condition = None):
         self.condition = condition
         self.statements = statements
+        set_owner(self.condition, self)
+        set_owner(self.statements, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.condition == obj_from:
+            self.condition = obj_to
+        replace_object(self.statements, obj_from, obj_to)
     def get_tokens_list(self, obj_type, filter = set()):
         return get_tokens_list(self.statements, obj_type, filter)
 
@@ -592,6 +743,10 @@ class PreprocExpr:
     def __init__(self, expr, brackets):
         self.expr = expr
         self.brackets = brackets
+        set_owner(self.expr, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.expr == obj_from:
+            self.expr = obj_to
     def get_text(self):
         text = ""
         if self.brackets:
@@ -610,6 +765,13 @@ class PreprocExprBinary:
         self.expr_left = expr_left
         self.expr_right = expr_right
         self.oper = oper
+        set_owner(self.expr_left, self)
+        set_owner(self.expr_right, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.expr_left == obj_from:
+            self.expr_left = obj_to
+        if self.expr_right == obj_from:
+            self.expr_right = obj_to
     def get_text(self):
         text = get_preproc_expr_text (self.expr_left)
         text += " " + self.oper + " "
@@ -621,6 +783,10 @@ class PreprocExprNot:
     expr = None
     def __init__(self, expr):
         self.expr = expr
+        set_owner(self.expr, self)
+    def replace_obj(self, obj_from, obj_to):
+        if self.expr == obj_from:
+            self.expr = obj_to
     def get_tokens_list(self, obj_type, filter = set()):
         return self.expr.get_tokens_list(obj_type, filter)
     def get_text(self):
