@@ -20,9 +20,9 @@ def get_modules_properties(path, extproc_name):
     for full_file_name in dump_files_list:
         if full_file_name.startswith('ОбщийМодуль'):
             module_name = full_file_name.split('.')[1]
-            if module_name.lower().find(extproc_name.lower()) == -1:
+            #if module_name.lower().find(extproc_name.lower()) == -1:
                 # общие модули должны содержать в названии имя обработки
-                continue
+                #continue
             is_client = False
             is_server = False
             is_client_server = False
