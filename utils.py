@@ -40,7 +40,7 @@ def get_statements_call_list(statements, obj_type = "function", filter = set()):
         result += func_list
     return result
 
-def get_proc_func_call_list(all_proc_funcs, proc_func, module_type, module_name):
+def get_sub_call_list(all_funcs_desc, statements, module_type, module_name):
     '''
     По переданному описанию функции составляет список вызываемых из неё процедур и функций.
     @param proc_func (strct1c.Function): описание функций
@@ -53,26 +53,29 @@ def get_proc_func_call_list(all_proc_funcs, proc_func, module_type, module_name)
     # Возвращаются все вызовы вида: Ф(..) или ID.Ф(..).
     # Среди них могут быть встроенные функции и вызовы функий от объектов, например:
     #   НСтр(..),
-    func_list = get_statements_call_list(proc_func.body.statements)
+    func_list = get_statements_call_list(statements)
     for func_rec in func_list:
-        func_name = func_rec[1]
-        if func_name.find('.') >= 0:
+        func_name_called = func_rec[1]
+        if func_name_called.find('.') > 0:
             # вызов разделенный точкой - обращение к функции другого общего модуля
-            full_name = "commonmodule" + "." + func_name
+            full_func_name_called = "CommonModule" + "." + func_name_called
         else:
             # обращение к функции этого модуля
-            full_name = module_type + "." + module_name + "." + func_name
-        full_name = full_name.lower()
+            full_func_name_called = module_type + "." + module_name + "." + func_name_called
         # отбираем только функции модулей (без встроенных функций)
-        if all_proc_funcs.get(full_name):
+        is_func_present = False
+        for name in all_funcs_desc:
+            if name.lower() == full_func_name_called.lower():
+                is_func_present = True
+        if is_func_present:
             # в функции может быть несколько обращений к одной и тойже (другой) функции
-            val = result.get(full_name, [])
+            val = result.get(full_func_name_called, [])
             val.append(func_rec[0])
-            result[full_name] = val
+            result[full_func_name_called] = val
     return result
 
 
-def fill_main_module_calls(main_module_new_funcs, func_calls, full_func_name):
+def fill_main_module_calls(main_module_new_funcs, func_subcalls, full_func_name):
     """
     Рекурсивно обходит всё дерево вызовов из переданной full_func_name и добавляет
     каждый вызов в main_module_new_funcs.
@@ -82,38 +85,48 @@ def fill_main_module_calls(main_module_new_funcs, func_calls, full_func_name):
     @return: None
     """
     # получить вызовы из full_func_name
-    sub_calls = func_calls.get(full_func_name)
+    sub_calls = func_subcalls.get(full_func_name)
 
     for func_name in sub_calls:
         if func_name in main_module_new_funcs:
             # если подвызов уже добавлен в функции для переноса - пропускаем, что бы избежать зацикливания
             pass
         else:
-            if func_name.split('.')[0] != "formmanaged":
+            if func_name.split('.')[0] != "FormManaged":
                 # не нужно добавлять в список процедуры и функций, которые уже есть в модуле
                 main_module_new_funcs.add(func_name)
-            fill_main_module_calls(main_module_new_funcs, func_calls, func_name)
+            fill_main_module_calls(main_module_new_funcs, func_subcalls, func_name)
 
-def add_special_proc_funcs(gl_func_to_add_spec, gl_func_calls, gl_spec_replace_params, proc_func_to_move_list):
-    for full_func_name in proc_func_to_move_list:
-        sub_call_list = gl_func_calls[full_func_name]
-        for called_func_name, calls in sub_call_list.items():
-            called_func_name_short = called_func_name.split(".")[2]
-            if called_func_name_short in gl_spec_replace_params:
-                # Если вызывамая функция - это одна из тех что указаны в gl_spec_replace_params,
-                # требуется перенести ещё функцию указанную в параметре.
-                for call in calls:
-                    if isinstance(call, strct1c.FuncCall):
-                        func_name = call.param_list[0].value[0]
-                        module_name = call.param_list[1].value[0]
-                    elif isinstance(call, strct1c.DottedExpression):
-                        func_name = call.properties_list[1].param_list[0].value[0]
-                        module_name = call.properties_list[1].param_list[1].value[0]
-                    else:
-                        raise Exception("Необработанный вызов : " + call)
-                    sub_call_full_name = ("CommonModule." + module_name + "." + func_name).lower()
-                    if not sub_call_full_name in gl_func_to_add_spec:
-                        # так же
-                        gl_func_to_add_spec.add(sub_call_full_name)
-                        add_special_proc_funcs(gl_func_to_add_spec, gl_func_calls, gl_spec_replace_params, [sub_call_full_name])
+
+# todo список особых процедур и функций необходимо параметризовать в файле конфигурации
+gl_spec_calls = {"ПолучитьОписаниеОповещенияСВызовомФункции", "СоздатьОбъектОписанияОповещения"}
+gl_spec_calls = {name.lower() for name in gl_spec_calls}
+
+def find_spec_calls(func_subcalls, funcs_to_move_primary):
+
+    def fill_implicit_called_funcs(funcs_to_check):
+        nonlocal implicit_called_funcs
+        nonlocal func_subcalls
+        for full_func_name in funcs_to_check:
+            for called_func_name, calls_list in func_subcalls[full_func_name].items():
+                called_func_name_short = called_func_name.split(".")[2]
+                if called_func_name_short.lower() in gl_spec_calls:
+                    # Если вызывамая функция - это одна из тех что указаны в gl_spec_calls,
+                    # требуется перенести ещё функцию указанную в параметре.
+                    for call in calls_list:
+                        if isinstance(call, strct1c.DottedExpression):
+                            func_name = call.properties_list[1].param_list[0].value[0]
+                            module_name = call.properties_list[1].param_list[1].value[0]
+                        else:
+                            # к данному моменту обращения к локальным функциям были заменены
+                            # на обращения к функциям общего модуля
+                            raise Exception("Необработанный вызов : " + call)
+                        sub_call_full_name = "CommonModule." + module_name + "." + func_name
+                        if not sub_call_full_name in implicit_called_funcs:
+                            implicit_called_funcs.add(sub_call_full_name)
+                            fill_implicit_called_funcs(func_subcalls, [sub_call_full_name])
+
+    implicit_called_funcs = set()
+    fill_implicit_called_funcs(funcs_to_move_primary)
+    return implicit_called_funcs
 
