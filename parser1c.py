@@ -17,19 +17,19 @@ precedence = (
 
 def p_module_1(p):
     '''module : global_vars SEMI proc_func_list statements'''
-    p[0] = strct1c.Module(statements_list = p[4], proc_func_list = p[3], global_vars = p[1])
+    p[0] = strct1c.Module(statements_list = p[4], proc_funcs_list = p[3], global_vars_list = p[1])
 
 def p_module_2(p):
     '''module : global_vars SEMI statements'''
-    p[0] = strct1c.Module(statements_list=p[3], proc_func_list = [], global_vars=p[1])
+    p[0] = strct1c.Module(statements_list=p[3], proc_funcs_list = [], global_vars_list=p[1])
 
 def p_module_3(p):
     '''module : proc_func_list statements'''
-    p[0] = strct1c.Module(statements_list=p[2], proc_func_list=p[1], global_vars = [])
+    p[0] = strct1c.Module(statements_list=p[2], proc_funcs_list=p[1], global_vars_list = [])
 
 def p_module_4(p):
     '''module : statements'''
-    p[0] = strct1c.Module(statements_list=p[1], proc_func_list = [], global_vars = [])
+    p[0] = strct1c.Module(statements_list=p[1], proc_funcs_list = [], global_vars_list = [])
 
 ## global vars
 def p_global_vars_1(p):
