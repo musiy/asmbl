@@ -38,14 +38,21 @@ def get_tokens_list(struct_list, obj_type, filter):
         func_list += x.get_tokens_list(obj_type, filter)
     return func_list
 
-def set_owner(subject, self):
+
+# Глобальная переменная, содержащая соответствия объекта его владельцу
+gl_owners = dict()
+
+def get_owner(subject):
+    return gl_owners.get(subject, None)
+
+def set_owner(subject, owner):
     if not subject or isinstance(subject, str) or isinstance(subject, int):
         return
     if isinstance(subject, list):
         for x in subject:
-            x._owner_ = self
+            gl_owners[x] = owner
     else:
-        subject._owner_ = self
+        gl_owners[subject] = owner
 
 def replace_object(subject_list, obj_from, obj_to):
     for i in range(len(subject_list)):
@@ -70,8 +77,8 @@ class Module:
         replace_object(self.proc_funcs_list, obj_from, obj_to)
         replace_object(self.global_vars_list, obj_from, obj_to)
     def get_text(self):
-        text = get_op_list_text(self.global_vars) + "\n"
-        text += get_op_list_text(self.proc_func_list, False) + "\n"
+        text = get_op_list_text(self.global_vars_list) + "\n"
+        text += get_op_list_text(self.proc_funcs_list, False) + "\n"
         text += get_op_list_text(self.statements_list) + "\n"
         return text
 
