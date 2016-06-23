@@ -1,0 +1,5 @@
+APP_TYPE_MANAGED = 'managed'
+APP_TYPE_ORDINARY = 'ordinary'
+FORM_MANAGED = 'FormManaged'
+FORM_ORDINARY = 'FormOrdinary'
+COMMON_MODULE = 'CommonModule'
