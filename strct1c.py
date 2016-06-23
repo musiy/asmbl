@@ -38,21 +38,25 @@ def get_tokens_list(struct_list, obj_type, filter):
         func_list += x.get_tokens_list(obj_type, filter)
     return func_list
 
-
 # Глобальная переменная, содержащая соответствия объекта его владельцу
 gl_owners = dict()
 
 def get_owner(subject):
     return gl_owners.get(subject, None)
 
-def set_owner(subject, owner):
+def set_owner(subject, owner, recursive = False):
     if not subject or isinstance(subject, str) or isinstance(subject, int):
         return
     if isinstance(subject, list):
         for x in subject:
             gl_owners[x] = owner
+            if recursive:
+                x.set_owner(recursive)
     else:
         gl_owners[subject] = owner
+        if recursive:
+            subject.set_owner(recursive)
+
 
 def replace_object(subject_list, obj_from, obj_to):
     for i in range(len(subject_list)):
@@ -69,9 +73,11 @@ class Module:
         self.statements_list = statements_list
         self.proc_funcs_list = proc_funcs_list
         self.global_vars_list = global_vars_list
-        set_owner(self.statements_list, self)
-        set_owner(self.proc_funcs_list, self)
-        set_owner(self.global_vars_list, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.statements_list, self, recursive)
+        set_owner(self.proc_funcs_list, self, recursive)
+        set_owner(self.global_vars_list, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         replace_object(self.statements_list, obj_from, obj_to)
         replace_object(self.proc_funcs_list, obj_from, obj_to)
@@ -87,8 +93,10 @@ class VariablesDeclaration:
     vars_list = None
     def __init__(self, vars_list, directive = None):
         self.vars_list = vars_list
-        set_owner(self.vars_list, self)
         self.directive = directive
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.vars_list, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         replace_object(self.vars_list, obj_from, obj_to)
     def get_text(self):
@@ -110,6 +118,8 @@ class VarDesc:
     def __init__(self, name, export = False):
         self.name = name
         self.export = export
+    def set_owner(self, recursive = False):
+        pass
     def get_text(self):
         text = self.name
         if self.export:
@@ -130,8 +140,10 @@ class Function:
         self.name = name
         self.vars_list = vars_list
         self.body = body
-        set_owner(self.vars_list, self)
-        set_owner(self.body, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.vars_list, self, recursive)
+        set_owner(self.body, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         replace_object(self.vars_list, obj_from, obj_to)
         if self.body == obj_from:
@@ -164,6 +176,8 @@ class FuncVarInitDecl:
         self.is_val = is_val
         self.var_name = var_name
         self.init_value = init_value
+    def set_owner(self, recursive = False):
+        pass
     def get_text(self):
         text = self.var_name
         if self.is_val:
@@ -178,8 +192,10 @@ class FuncBody:
     def __init__(self, vars_decls_list = None, statements = None):
         self.vars_decls_list = vars_decls_list
         self.statements = statements
-        set_owner(self.vars_decls_list, self)
-        set_owner(self.statements, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.vars_decls_list, self, recursive)
+        set_owner(self.statements, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         replace_object(self.vars_decls_list, obj_from, obj_to)
         replace_object(self.statements, obj_from, obj_to)
@@ -202,8 +218,10 @@ class StatementAssignment(Statement):
     def __init__(self, property, expr = None):
         self.property = property
         self.expr = expr
-        set_owner(self.property, self)
-        set_owner(self.expr, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.property, self, recursive)
+        set_owner(self.expr, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.property == obj_from:
             self.property = obj_to
@@ -219,7 +237,9 @@ class StatementFuncCall(Statement):
     statement = None
     def __init__(self, statement):
         self.statement = statement
-        set_owner(self.statement, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.statement, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.statement == obj_from:
             self.statement = obj_to
@@ -234,8 +254,10 @@ class TryStatement(Statement):
     def __init__(self, try_statements, except_statements):
         self.try_statements = try_statements
         self.except_statements = except_statements
-        set_owner(self.try_statements, self)
-        set_owner(self.except_statements, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.try_statements, self, recursive)
+        set_owner(self.except_statements, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         replace_object(self.try_statements, obj_from, obj_to)
         replace_object(self.except_statements, obj_from, obj_to)
@@ -261,7 +283,9 @@ class LabeledStatement(Statement):
     def __init__(self, label_name, statement):
         self.label_name = label_name
         self.statement = statement
-        set_owner(self.statement, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.statement, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.statement == obj_from:
             self.statement = obj_to
@@ -281,9 +305,11 @@ class IfElseStatement(Statement):
         self.if_expression = if_expression
         self.if_statements = if_statements
         self.else_collection = else_collection
-        set_owner(self.if_expression, self)
-        set_owner(self.if_statements, self)
-        set_owner(self.else_collection, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.if_expression, self, recursive)
+        set_owner(self.if_statements, self, recursive)
+        set_owner(self.else_collection, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.if_expression == obj_from:
             self.if_expression = obj_to
@@ -318,8 +344,10 @@ class ElseStatement:
     def __init__(self, statements, condition = None):
         self.condition = condition
         self.statements = statements
-        set_owner(self.condition, self)
-        set_owner(self.statements, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.condition, self, recursive)
+        set_owner(self.statements, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.condition == obj_from:
             self.condition = obj_to
@@ -338,8 +366,10 @@ class ForEachBlock(Statement):
         self.id_name = id_name
         self.expression = expression
         self.statements = statements
-        set_owner(self.expression, self)
-        set_owner(self.statements, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.expression, self, recursive)
+        set_owner(self.statements, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.expression == obj_from:
             self.expression = obj_to
@@ -366,9 +396,11 @@ class ForBlock(Statement):
         self.expression_start = expression_start
         self.expression_end = expression_end
         self.statements = statements
-        set_owner(self.expression_start, self)
-        set_owner(self.expression_end, self)
-        set_owner(self.statements, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.expression_start, self, recursive)
+        set_owner(self.expression_end, self, recursive)
+        set_owner(self.statements, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.expression_start == obj_from:
             self.expression_start = obj_to
@@ -395,8 +427,10 @@ class WhileBlock(Statement):
     def __init__(self, expression, statements):
         self.expression = expression
         self.statements = statements
-        set_owner(self.expression, self)
-        set_owner(self.statements, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.expression, self, recursive)
+        set_owner(self.statements, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.expression == obj_from:
             self.expression = obj_to
@@ -419,7 +453,9 @@ class JumpStatemets(Statement):
     def __init__(self, key_word, second_param = None):
         self.key_word = key_word
         self.second_param = second_param
-        set_owner(self.second_param, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.second_param, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.second_param == obj_from:
             self.second_param = obj_to
@@ -438,7 +474,9 @@ class DottedExpression:
     properties_list = None
     def __init__(self, property):
         self.properties_list = [property]
-        set_owner(self.properties_list, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.properties_list, self, recursive)
     def append(self, property):
         self.properties_list += [property]
     def replace_obj(self, obj_from, obj_to):
@@ -494,8 +532,10 @@ class PropertyIndexed:
     def __init__(self, operand, index_expr = None):
         self.operand = operand
         self.index_expr_list = [index_expr]
-        set_owner(self.operand, self)
-        set_owner(self.index_expr_list, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.operand, self, recursive)
+        set_owner(self.index_expr_list, self, recursive)
     def apnd(self, index_expr):
         self.index_expr_list += [index_expr]
     def replace_obj(self, obj_from, obj_to):
@@ -527,7 +567,9 @@ class FuncCall:
     def __init__(self, name, param_list):
         self.name = name
         self.param_list = param_list
-        set_owner(self.param_list, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.param_list, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         replace_object(self.param_list, obj_from, obj_to)
     def get_tokens_list(self, obj_type, filter = set()):
@@ -558,6 +600,8 @@ class Identifier:
     id = None
     def __init__(self, id):
         self.id = id
+    def set_owner(self, recursive = False):
+        pass
     def get_tokens_list(self, obj_type, filter = set()):
         result = []
         if obj_type == "id" and filter and self.id.lower() in filter:
@@ -581,7 +625,9 @@ class GroupedExpr(Expr):
     expr = None
     def __init__(self, expr):
         self.expr = expr
-        set_owner(self.expr, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.expr, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.expr == obj_from:
             self.expr = obj_to
@@ -599,8 +645,10 @@ class BinaryExpr(Expr):
         self.expr1 = expr1
         self.expr2 = expr2
         self.oper = oper
-        set_owner(self.expr1, self)
-        set_owner(self.expr2, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.expr1, self, recursive)
+        set_owner(self.expr2, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.expr1 == obj_from:
             self.expr1 = obj_to
@@ -620,9 +668,11 @@ class QuestionExpr(Expr):
         self.expr = expr
         self.first = first
         self.second = second
-        set_owner(self.expr, self)
-        set_owner(self.first, self)
-        set_owner(self.second, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.expr, self, recursive)
+        set_owner(self.first, self, recursive)
+        set_owner(self.second, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.expr == obj_from:
             self.expr = obj_to
@@ -644,7 +694,9 @@ class NewExpr(Expr):
     def __init__(self, id = None, param_list = None):
         self.id = id
         self.param_list = param_list
-        set_owner(self.param_list, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.param_list, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         replace_object(self.param_list, obj_from, obj_to)
     def get_tokens_list(self, obj_type, filter = set()):
@@ -674,7 +726,9 @@ class UnaryExpr(Expr):
     def __init__(self, op, expr):
         self.op = op
         self.expr = expr
-        set_owner(self.expr, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.expr, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.expr == obj_from:
             self.expr = obj_to
@@ -693,9 +747,11 @@ class PreprocIfElseStatement:
         self.if_expression = if_expression
         self.if_statements = if_statements
         self.else_collection = else_collection
-        set_owner(self.if_expression, self)
-        set_owner(self.if_statements, self)
-        set_owner(self.else_collection, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.if_expression, self, recursive)
+        set_owner(self.if_statements, self, recursive)
+        set_owner(self.else_collection, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.if_expression == obj_from:
             self.if_expression = obj_to
@@ -728,8 +784,10 @@ class PreprocElse:
     def __init__(self, statements, condition = None):
         self.condition = condition
         self.statements = statements
-        set_owner(self.condition, self)
-        set_owner(self.statements, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.condition, self, recursive)
+        set_owner(self.statements, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.condition == obj_from:
             self.condition = obj_to
@@ -750,7 +808,9 @@ class PreprocExpr:
     def __init__(self, expr, brackets):
         self.expr = expr
         self.brackets = brackets
-        set_owner(self.expr, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.expr, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.expr == obj_from:
             self.expr = obj_to
@@ -772,8 +832,10 @@ class PreprocExprBinary:
         self.expr_left = expr_left
         self.expr_right = expr_right
         self.oper = oper
-        set_owner(self.expr_left, self)
-        set_owner(self.expr_right, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.expr_left, self, recursive)
+        set_owner(self.expr_right, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.expr_left == obj_from:
             self.expr_left = obj_to
@@ -790,7 +852,9 @@ class PreprocExprNot:
     expr = None
     def __init__(self, expr):
         self.expr = expr
-        set_owner(self.expr, self)
+        self.set_owner()
+    def set_owner(self, recursive = False):
+        set_owner(self.expr, self, recursive)
     def replace_obj(self, obj_from, obj_to):
         if self.expr == obj_from:
             self.expr = obj_to
@@ -806,6 +870,8 @@ class SimpleType:
     value = None
     def get_tokens_list(self, obj_type, filter = set()):
         return []
+    def set_owner(self, recursive = False):
+        pass
     def get_text(self):
         return self.value
 
