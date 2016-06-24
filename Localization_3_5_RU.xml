@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Localization>
+
+	<term name="copyright"> 
+		<tr build="ru" loc="">Copyright © АО &quot;&quot;БИФИТ&quot;&quot;, 2012-2016</tr> 
+		<tr build="ua" loc="">Copyright © BIFIT. 2016</tr> 
+	</term>
+
+	<term name="product"> 
+		<tr build="ru" loc="">iBank 2</tr> 
+		<tr build="ua" loc="">iBank 2 UA</tr> 
+	</term>
+	<term name="site_info"> 
+		<tr build="ru" loc="">https://ibank2.ru/1c.html</tr> 
+		<tr build="ua" loc="">http://bifit.ua/decisions/1c_module/index.html</tr> 
+	</term>
+
+	<term name="site_update">
+		<tr build="ru" loc="">https://ibank2.ru/1c.html</tr>
+		<tr build="ua" loc="">https://ibank2.ua</tr>
+	</term>
+
+	<term name="doc_payment">
+		<tr build="ru" loc="">doc/payment</tr>
+		<tr build="ua" loc="">doc/ua_payment</tr>
+	</term>
+
+	<!-- Блок строк локализации, которые различаются для языка используемого пользователем.
+	     Используется когда в рамках одной локализации (российской или украинской),
+	     термин имеет перевод и будет подставляться в НСтр("ru='{<id>_ru}';uk='{<id>_ua}'").
+	     Для локализации сборки строки будут взяты по соотвествующему аттрибуту build.
+         Аттрибут loc используется для перевода строки на разные языки.
+	-->
+	<term name="bic"> 
+		<tr build="ru" loc="ru">БИК</tr> 
+		<tr build="ru" loc="ua">БIК</tr> 
+		<tr build="ua" loc="ru">МФО</tr> 
+		<tr build="ua" loc="ua">МФО</tr> 
+	</term>
+
+	<term name="inn"> 
+		<tr build="ru" loc="ru">ИНН</tr> 
+		<tr build="ru" loc="ua">ІПН</tr> 
+		<tr build="ua" loc="ru">Код по ЕГРПОУ</tr> 
+		<tr build="ua" loc="ua">Код за ЄДРПОУ</tr> 
+	</term>
+
+	<term name="module_name"> 
+		<tr build="ru" loc="ru">iBank 2 для 1С:Предприятия</tr> 
+		<tr build="ru" loc="ua">iBank 2 для 1С:Підприємства</tr> 
+		<tr build="ua" loc="ru">iBank 2 UA для 1С:Предприятия</tr> 
+		<tr build="ua" loc="ua">iBank 2 UA для 1С:Підприємства</tr> 
+	</term>
+
+    <!-- 
+        "Налог на добавочную стоимость (НДС)"
+        "Податок на додану вартiсть (ПДВ)"
+    -->
+    <term name="nds"> 
+		<tr build="ru" loc="ru">НДС</tr> 
+		<tr build="ru" loc="ua">НДС</tr> 
+		<tr build="ua" loc="ru">НДС</tr> 
+		<tr build="ua" loc="ua">ПДВ</tr> 
+	</term>
+
+</Localization>
