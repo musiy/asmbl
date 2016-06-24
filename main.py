@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 
+# не убирать - импортируются типы namedtuple, которые требуются модулю pickle
 from base_const import *
+
 import context
-import copy
-import custom_handlers
 import locsettings
 import move_funcs
 import os
 import pickle
 import strct1c
-import utils
 
 # Используется для отбора среди обработок нужной
 PROCESSOR_NAME = "iBank2"
@@ -39,32 +38,25 @@ else:
         with open('init_stage.pickle', 'wb') as f:
             pickle.dump(gl_context, f)
 
-#exit(0)
-
 if CACHE_MODE_ON and os.path.isfile('final_stage.pickle'):
     with open('final_stage.pickle', 'rb') as f:
-        (gl_context, main_form_struct, gl_move_config) = pickle.load(f)
+        (gl_context, gl_move_config) = pickle.load(f)
 else:
-    # Описание основной управляемой формы
-    main_form_struct = gl_context.gl_form_props[MAIN_MANAGED_FORM_NAME]['struct']
-
     # Получить конфигурацию перемещений
-    gl_move_config = move_funcs.get_move_functions_configuration(gl_context, FUNC_FOR_OBTAIN_MAIN_FORM,
-                                                                 main_form_struct)
+    gl_move_config = move_funcs.get_move_functions_configuration(gl_context, FUNC_FOR_OBTAIN_MAIN_FORM)
 
     # Выполнить перемещение процедур и функций в основную форму
-    move_funcs.transfer_functions_to_main_form(gl_context, gl_move_config, main_form_struct, PROCESSOR_NAME)
+    move_funcs.transfer_functions_to_main_form(gl_context, gl_move_config, PROCESSOR_NAME)
 
     # Выполнить перемещение процедур и функций во вспомогательные формы
-    move_funcs.transfer_functions_to_secondary_form(gl_context, gl_move_config, PROCESSOR_NAME,
+    move_funcs.transfer_functions_to_secondary_form(gl_context, gl_move_config,
+                                                    PROCESSOR_NAME,
                                                     FUNC_FOR_OBTAIN_MAIN_FORM)
     if CACHE_MODE_ON:
         with open('final_stage.pickle', 'wb') as f:
-            pickle.dump( (gl_context, main_form_struct, gl_move_config) , f)
+            pickle.dump( (gl_context, gl_move_config) , f)
 
 for full_form_name, form_prop in gl_context.gl_form_props.items():
-    if full_form_name == 'ИсторияДокумента':
-        a = 1
     form_prop['text'] = strct1c.get_text(form_prop['struct'])
 
 #######################################################################################################
@@ -92,8 +84,8 @@ for form_name, form_props in gl_context.gl_form_props.items():
         pass
 
 # При переносе функций во вспомогательную форму необходимо удалить признак экспортной функции.
-# gl_all_funcs_desc_to_move_secondary
-# gl_replace_calls_to_main_module
+# functions_to_move_dict
+# replace_calls_to_primary_module
 
 # Во вспомогательных управляемых формах
 # а) добавить переменную модуля формы ОсновнаяФорма

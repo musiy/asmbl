@@ -3,24 +3,25 @@ import move_funcs
 import strct1c
 import utils
 
-def update_funcs_to_move_primary(move_config, gl_context):
+def update_functions_to_move(primary_form_config, gl_context):
 
     # Некоторые функции вызываются неявно через Выполнить(..) - заполним их вручную
-    gl_funcs_to_move_primary_spec = find_spec_calls(gl_context, move_config.gl_funcs_to_move_primary)
-    for full_func_name in gl_funcs_to_move_primary_spec:
-        move_config.gl_main_module_export_functions.add(full_func_name)
-        if full_func_name not in move_config.gl_funcs_to_move_primary:
-            move_config.gl_funcs_to_move_primary.add(full_func_name)
-            move_funcs.fill_main_module_calls(move_config.gl_funcs_to_move_primary,
+    gl_functions_to_move_spec = find_spec_calls(gl_context, primary_form_config.functions_to_move)
+    for full_func_name in gl_functions_to_move_spec:
+        primary_form_config.export_functions.add(full_func_name)
+        if full_func_name not in primary_form_config.functions_to_move:
+            primary_form_config.functions_to_move.add(full_func_name)
+            move_funcs.fill_primary_form_direct_call_chain(primary_form_config.functions_to_move,
                                               gl_context.gl_func_subcalls[APP_TYPE_MANAGED],
                                               full_func_name)
+
     # некоторые функции содержат в названии префикс "гл_" - это признак того, что функцию
     # следует перенести в основную форму
     for full_func_name in gl_context.gl_all_funcs_desc['managed']:
         if full_func_name.split('.')[2].lower().startswith("гл_") and \
-                        full_func_name not in move_config.gl_funcs_to_move_primary:
-            move_config.gl_funcs_to_move_primary.add(full_func_name)
-            move_funcs.fill_main_module_calls(move_config.gl_funcs_to_move_primary,
+                        full_func_name not in primary_form_config.functions_to_move:
+            primary_form_config.functions_to_move.add(full_func_name)
+            move_funcs.fill_primary_form_direct_call_chain(primary_form_config.functions_to_move,
                                               gl_context.gl_func_subcalls[APP_TYPE_MANAGED],
                                               full_func_name)
     pass
@@ -28,7 +29,7 @@ def update_funcs_to_move_primary(move_config, gl_context):
 gl_spec_calls = {"ПолучитьОписаниеОповещенияСВызовомФункции", "СоздатьОбъектОписанияОповещения"}
 gl_spec_calls = {name.lower() for name in gl_spec_calls}
 
-def find_spec_calls(gl_context, gl_funcs_to_move_primary):
+def find_spec_calls(gl_context, functions_to_move):
     """
     Некоторые процедуры/функции вызываются особым образом через фукнкции
     ПолучитьОписаниеОповещенияСВызовомФункции и СоздатьОбъектОписанияОповещения.
@@ -38,7 +39,7 @@ def find_spec_calls(gl_context, gl_funcs_to_move_primary):
     переносимых в основную форму.
     Кроме того, из за способа вызова эти функции должны оставаться экспортными.
     @param gl_context: базовый контекст
-    @param gl_funcs_to_move_primary (set): список функций для перемещения в основную форму
+    @param functions_to_move (set): список функций для перемещения в основную форму
     @return:
     """
 
@@ -70,10 +71,10 @@ def find_spec_calls(gl_context, gl_funcs_to_move_primary):
 
     func_subcalls = gl_context.gl_func_subcalls[APP_TYPE_MANAGED]
     implicit_called_funcs = set()
-    fill_implicit_called_funcs(gl_funcs_to_move_primary)
+    fill_implicit_called_funcs(functions_to_move)
     return implicit_called_funcs
 
-def update_funcs_to_move_secondary(gl_move_config, gl_context):
+def update_funcs_to_move_secondary(secondary_forms_config, primary_form_config, context):
     """
      Некоторые процедуры/функции вызываются особым образом через фукнкции
      ПолучитьОписаниеОповещенияСВызовомФункции и СоздатьОбъектОписанияОповещения.
@@ -83,15 +84,17 @@ def update_funcs_to_move_secondary(gl_move_config, gl_context):
      переносимых в основную форму.
      Кроме того, из за способа вызова эти функции должны оставаться экспортными.
      """
-    for form_name, funcs_to_move in gl_move_config.gl_all_funcs_desc_to_move_secondary.items():
-        funcs_to_move_spec = find_spec_calls(gl_context, funcs_to_move)
+    for form_name, funcs_to_move in secondary_forms_config.functions_to_move_dict.items():
+        funcs_to_move_spec = find_spec_calls(context, funcs_to_move)
         for called_func_name in funcs_to_move_spec:
             if not called_func_name in funcs_to_move:
-                if not gl_move_config.gl_secondary_module_export_functions.get(form_name):
-                    gl_move_config.gl_secondary_module_export_functions[form_name] = set()
-                gl_move_config.gl_secondary_module_export_functions[form_name].add(called_func_name)
+                if not secondary_forms_config.export_functions.get(form_name):
+                    secondary_forms_config.export_functions[form_name] = set()
+                secondary_forms_config.export_functions[form_name].add(called_func_name)
                 move_funcs.update_secondary_form_calls(form_name, called_func_name, False,
-                                                       gl_context, gl_move_config)
+                                                       context,
+                                                       secondary_forms_config,
+                                                       primary_form_config.functions_to_move)
     pass
 
 
@@ -117,12 +120,14 @@ def handle_form_module_func_proc(func_proc_desc, sub_call_list):
     pass
 
 
-def update_main_module_struct(main_form_struct):
+def update_main_form_functions_transfer(context, move_config):
     """
     Выполняет дополнение модуля основной формы после того как в неё были перенесены функции.
     @param main_form_struct: стуктура основной формы
     @return:
     """
+    # Описание основной управляемой формы
+    main_form_struct = context.gl_form_props["Основная"]['struct']
 
     # Замена ссылок на некоторые глобальные переменные на обращения особого вида
     # Например, гл_Subsys_ИмяФайлаОбработки => Объект.КэшДанных.ИмяОбработки
