@@ -1,10 +1,14 @@
+# -*- coding: utf-8 -*-
+
 import collections
 
 APP_TYPE_MANAGED = 'managed'
 APP_TYPE_ORDINARY = 'ordinary'
+
 FORM_MANAGED = 'FormManaged'
 FORM_ORDINARY = 'FormOrdinary'
 COMMON_MODULE = 'CommonModule'
+DATA_PROCESSOR = 'DataProcessor'
 
 MoveConfiguration = collections.namedtuple('MoveConfiguration', ['primary_form_config', 'secondary_forms_config'])
 PrimaryFormConf = collections.namedtuple('PrimaryFormConf', ['functions_to_move', 'export_functions'])

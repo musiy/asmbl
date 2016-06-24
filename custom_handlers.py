@@ -1,29 +1,33 @@
+# -*- coding: utf-8 -*-
+
 from base_const import *
 import move_funcs
 import strct1c
 import utils
 
-def update_functions_to_move(primary_form_config, gl_context):
+def update_functions_to_move(app_type, primary_module_config, context):
 
     # Некоторые функции вызываются неявно через Выполнить(..) - заполним их вручную
-    gl_functions_to_move_spec = find_spec_calls(gl_context, primary_form_config.functions_to_move)
+    gl_functions_to_move_spec = find_spec_calls(context, primary_module_config.functions_to_move)
+
     for full_func_name in gl_functions_to_move_spec:
-        primary_form_config.export_functions.add(full_func_name)
-        if full_func_name not in primary_form_config.functions_to_move:
-            primary_form_config.functions_to_move.add(full_func_name)
-            move_funcs.fill_primary_form_direct_call_chain(primary_form_config.functions_to_move,
-                                              gl_context.gl_func_subcalls[APP_TYPE_MANAGED],
+        primary_module_config.export_functions.add(full_func_name)
+        if full_func_name not in primary_module_config.functions_to_move:
+            primary_module_config.functions_to_move.add(full_func_name)
+            move_funcs.fill_direct_call_chain(primary_module_config.functions_to_move,
+                                              context.gl_func_subcalls[app_type],
                                               full_func_name)
 
-    # некоторые функции содержат в названии префикс "гл_" - это признак того, что функцию
-    # следует перенести в основную форму
-    for full_func_name in gl_context.gl_all_funcs_desc['managed']:
-        if full_func_name.split('.')[2].lower().startswith("гл_") and \
-                        full_func_name not in primary_form_config.functions_to_move:
-            primary_form_config.functions_to_move.add(full_func_name)
-            move_funcs.fill_primary_form_direct_call_chain(primary_form_config.functions_to_move,
-                                              gl_context.gl_func_subcalls[APP_TYPE_MANAGED],
-                                              full_func_name)
+    if app_type == APP_TYPE_MANAGED:
+        # некоторые функции содержат в названии префикс "гл_" - это признак того, что функцию
+        # следует перенести в основную форму
+        for full_func_name in context.gl_all_funcs_desc['managed']:
+            if full_func_name.split('.')[2].lower().startswith("гл_") and \
+                            full_func_name not in primary_module_config.functions_to_move:
+                primary_module_config.functions_to_move.add(full_func_name)
+                move_funcs.fill_direct_call_chain(primary_module_config.functions_to_move,
+                                                  context.gl_func_subcalls[app_type],
+                                                  full_func_name)
     pass
 
 gl_spec_calls = {"ПолучитьОписаниеОповещенияСВызовомФункции", "СоздатьОбъектОписанияОповещения"}
@@ -100,7 +104,7 @@ def update_funcs_to_move_secondary(secondary_forms_config, primary_form_config, 
 
 def handle_form_module_func_proc(func_proc_desc, sub_call_list):
     """
-    Pаменяет второй параметр в вызове функций ПолучитьОписаниеОповещенияСВызовомФункции,
+    Заменяет второй параметр в вызове функций ПолучитьОписаниеОповещенияСВызовомФункции,
     СоздатьОбъектОписанияОповещения на ЭтотОбъект.
     @param func_proc_desc:
     @param sub_call_list:
@@ -120,26 +124,28 @@ def handle_form_module_func_proc(func_proc_desc, sub_call_list):
     pass
 
 
-def update_main_form_functions_transfer(context, move_config):
+def update_primary_module_after_transfer(app_mode, module_struct):
     """
     Выполняет дополнение модуля основной формы после того как в неё были перенесены функции.
-    @param main_form_struct: стуктура основной формы
+    @param module_struct: стуктура основной управляемой формы или модуля обработки
     @return:
     """
-    # Описание основной управляемой формы
-    main_form_struct = context.gl_form_props["Основная"]['struct']
 
     # Замена ссылок на некоторые глобальные переменные на обращения особого вида
     # Например, гл_Subsys_ИмяФайлаОбработки => Объект.КэшДанных.ИмяОбработки
 
-    replacements = {"гл_iBank2_ИмяФайлаОбработки": "Объект.КэшДанных.ИмяОбработки",
-                    "гл_iBank2_РежимРаботы": "Объект.КэшДанных.РежимРаботы"}
+    if app_mode == APP_TYPE_MANAGED:
+        replacements = {'гл_iBank2_ИмяФайлаОбработки': 'Объект.КэшДанных.ИмяОбработки',
+                        'гл_iBank2_РежимРаботы': 'Объект.КэшДанных.РежимРаботы'}
+    else:
+        replacements = {'гл_iBank2_ИмяФайлаОбработки': 'ЭтотОбъект.КэшДанных.ИмяОбработки',
+                        'гл_iBank2_РежимРаботы': 'ЭтотОбъект.КэшДанных.РежимРаботы'}
 
     replacements = {key.lower(): val for key, val in replacements.items()}
     filter = {x for x in replacements}
 
     id_call_list = []
-    for func_proc_desc in main_form_struct.proc_funcs_list:
+    for func_proc_desc in module_struct.proc_funcs_list:
         id_call_list += utils.get_statements_call_list(func_proc_desc.body.statements, obj_type="id", filter=filter)
 
     for rec in id_call_list:

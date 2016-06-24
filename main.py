@@ -27,8 +27,6 @@ FUNC_FOR_OBTAIN_MAIN_FORM = 'CommonModule.iBank2_ОбщегоНазначени�
 # todo должен параметризоваться
 EXCLUDE_AREAS = ["DEBUG", "FILE_OPERATIONS_LOAD", "PRODUCT_UA", "DEBUG_FOR_CONF_DEBUGGING", "TEST"]
 
-MAIN_MANAGED_FORM_NAME = "Основная"
-
 if CACHE_MODE_ON and os.path.isfile('init_stage.pickle'):
     with open('init_stage.pickle', 'rb') as f:
         gl_context = pickle.load(f)
@@ -42,6 +40,13 @@ if CACHE_MODE_ON and os.path.isfile('final_stage.pickle'):
     with open('final_stage.pickle', 'rb') as f:
         (gl_context, gl_move_config) = pickle.load(f)
 else:
+
+    # получить настройки перемещения для обычного приложения
+    gl_dataproc_module_config = move_funcs.get_move_functions_configuration_ordinary_app(gl_context)
+
+    # Выполнить перемещение процедур и функций в основную форму
+    move_funcs.transfer_functions_to_dataprocessor_module(gl_context, gl_dataproc_module_config)
+
     # Получить конфигурацию перемещений
     gl_move_config = move_funcs.get_move_functions_configuration(gl_context, FUNC_FOR_OBTAIN_MAIN_FORM)
 
@@ -52,36 +57,43 @@ else:
     move_funcs.transfer_functions_to_secondary_form(gl_context, gl_move_config,
                                                     PROCESSOR_NAME,
                                                     FUNC_FOR_OBTAIN_MAIN_FORM)
-    if CACHE_MODE_ON:
-        with open('final_stage.pickle', 'wb') as f:
-            pickle.dump( (gl_context, gl_move_config) , f)
+    # if CACHE_MODE_ON:
+    #     with open('final_stage.pickle', 'wb') as f:
+    #         pickle.dump( (gl_context, gl_move_config) , f)
 
 for full_form_name, form_prop in gl_context.gl_form_props.items():
     form_prop['text'] = strct1c.get_text(form_prop['struct'])
+
+gl_context.gl_ep_module['text'] = strct1c.get_text(gl_context.gl_ep_module['struct'])
 
 #######################################################################################################
 # Локализация.
 
 loc_dict = locsettings.get_localization_settings('ru')
 for form_name, form_props in gl_context.gl_form_props.items():
-   # todo пока только управляемые формы
-   if not form_props['is_managed']:
-       continue
    module_text = form_props['text']
    for loc_key, loc_val in loc_dict.items():
        module_text = module_text.replace("{"+loc_key+"}", loc_val)
    form_props['text'] = module_text
 
+module_text = gl_context.gl_ep_module['text']
+for loc_key, loc_val in loc_dict.items():
+    module_text = module_text.replace("{" + loc_key + "}", loc_val)
+gl_context.gl_ep_module['text'] = module_text
+
 # выгрузка подготовленных текстов на диск
 for form_name, form_props in gl_context.gl_form_props.items():
-    if form_props['is_managed']:
-        file_name = form_props['file_name']
-        text = form_props['text']
-        file = open(os.path.join('dump.new', file_name), 'w', encoding='utf-8')
-        file.write(u'\ufeff')
-        file.write(text)
-    else:
-        pass
+    file_name = form_props['file_name']
+    text = form_props['text']
+    file = open(os.path.join('dump.new', file_name), 'w', encoding='utf-8')
+    file.write(u'\ufeff')
+    file.write(text)
+
+file_name = 'Обработка.iBank2.МодульОбъекта.txt'
+text = gl_context.gl_ep_module['text']
+file = open(os.path.join('dump.new', file_name), 'w', encoding='utf-8')
+file.write(u'\ufeff')
+file.write(text)
 
 # При переносе функций во вспомогательную форму необходимо удалить признак экспортной функции.
 # functions_to_move_dict

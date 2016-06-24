@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from base_const import *
 import copy
 import collections
@@ -5,11 +7,65 @@ import custom_handlers
 import strct1c
 import utils
 
+def get_move_functions_configuration_ordinary_app(context):
+
+    dataproc_module_config = PrimaryFormConf(set(), set())
+
+    for full_func_name in context.gl_func_subcalls[APP_TYPE_ORDINARY]:
+        if full_func_name.split('.')[0] == FORM_ORDINARY:
+            fill_direct_call_chain(dataproc_module_config.functions_to_move,
+                                   context.gl_func_subcalls[APP_TYPE_ORDINARY],
+                                   full_func_name)
+            sub_calls = context.gl_func_subcalls[APP_TYPE_ORDINARY].get(full_func_name)
+            for sub_called_func_name in sub_calls:
+                if sub_called_func_name[0:4] != 'Form':
+                    # функции, вызываемые непосредственно из обычных форм должны быть экспортными
+                    dataproc_module_config.export_functions.add(sub_called_func_name)
+
+    custom_handlers.update_functions_to_move(APP_TYPE_ORDINARY, dataproc_module_config, context)
+
+    return dataproc_module_config
+
+def transfer_functions_to_dataprocessor_module(context, dataproc_module_config):
+
+    # Описание основной управляемой формы
+    dataprocessor_module_struct = context.gl_ep_module['struct']
+
+    copy_functions_to_form(APP_TYPE_ORDINARY,
+                           dataprocessor_module_struct,
+                           dataproc_module_config.functions_to_move,
+                           dataproc_module_config.export_functions,
+                           context.gl_all_funcs_desc[APP_TYPE_ORDINARY],
+                           context.gl_common_modules_props)
+
+    handle_form_module_func_proc(dataprocessor_module_struct, DATA_PROCESSOR + '.' + 'iBank2', context.gl_common_modules_props)
+
+    # Перенос в модуль основной формы глобальных переменных.
+    for gl_var_desc in context.gl_app_module[APP_TYPE_ORDINARY]['struct'].global_vars_list:
+        if 'iBank2'.lower() in gl_var_desc.vars_list[0].name.lower():
+            gl_var_desc_new = copy.deepcopy(gl_var_desc)
+            gl_var_desc_new.directive = None
+            gl_var_desc_new.vars_list[0].export = False;
+            dataprocessor_module_struct.global_vars_list.append(gl_var_desc_new)
+
+    custom_handlers.update_primary_module_after_transfer(APP_TYPE_ORDINARY, dataprocessor_module_struct)
+
+    for form_name, form_props in context.gl_form_props.items():
+        if form_props['is_managed']:
+            continue
+        for func_proc_desc in form_props['struct'].proc_funcs_list:
+            sub_call_list = utils.get_statements_call_list(func_proc_desc.body.statements)
+            # заменяем обращения к общим модулям на обращение к локальным функциям
+            replace_common_module_calls(sub_call_list, context.gl_common_modules_props)
+
+    pass
+
+
 def get_move_functions_configuration(context, func_name_get_main_module):
 
     primary_form_config = get_functions_to_move(context)
     # Дополнить список функций переносимых в основную форму
-    custom_handlers.update_functions_to_move(primary_form_config, context)
+    custom_handlers.update_functions_to_move(APP_TYPE_MANAGED, primary_form_config, context)
 
     secondary_forms_config = get_secondary_module_config(primary_form_config, context)
     # Дополнить список функций переносимых во вспомогательные формы
@@ -28,29 +84,28 @@ def get_move_functions_configuration(context, func_name_get_main_module):
     return MoveConfiguration(primary_form_config, secondary_forms_config)
 
 
-def get_functions_to_move(gl_context):
+def get_functions_to_move(context):
     """
     Формирование списка процедур и функций общих модулей для переноса в основную форму.
     Этот список состоит из таких пр./ф которые непосредственно учавствуют в цепочке вызова,
     а так же учавствуют в цепочке вызова косвенно, например через вызов Выполнить(..).
-    @param gl_context: контекст загруженных модулей
+    @param context: контекст загруженных модулей
     @return (set): набор функций для переноса в основную форму
     """
 
     primary_form_config = PrimaryFormConf(set(), set())
 
-    for full_func_name in gl_context.gl_func_subcalls[APP_TYPE_MANAGED]:
+    for full_func_name in context.gl_func_subcalls[APP_TYPE_MANAGED]:
         parts = full_func_name.split('.')
         if parts[0] == FORM_MANAGED and parts[1].lower() == 'основная':
-            fill_primary_form_direct_call_chain(primary_form_config.functions_to_move,
-                                   gl_context.gl_func_subcalls[APP_TYPE_MANAGED],
-                                   full_func_name)
+            fill_direct_call_chain(primary_form_config.functions_to_move,
+                                                context.gl_func_subcalls[APP_TYPE_MANAGED],
+                                                full_func_name)
     return primary_form_config
 
-def fill_primary_form_direct_call_chain(primary_form_funcs, func_subcalls, full_func_name):
+def fill_direct_call_chain(module_funcs_set, func_subcalls, full_func_name):
     """
-    Рекурсивно обходит всё дерево вызовов из переданной full_func_name и добавляет
-    каждый вызов в primary_form_funcs.
+    Рекурсивно обходит всё дерево вызовов из переданной full_func_name и добавляет каждый вызов в module_funcs_set.
     На самом верхнем уровне функция вызывается для каждой процедуры/функции модуля формы.
     Далее вызов продолжается для каждого дочернего вызова и т.д. до последнего вызова.
     @param full_func_name (str): имя процедуры/функции в формате CommonModule.<ИмяМодуля>.<ИмяПроцедурыФункции>
@@ -60,14 +115,14 @@ def fill_primary_form_direct_call_chain(primary_form_funcs, func_subcalls, full_
     sub_calls = func_subcalls.get(full_func_name)
 
     for func_name in sub_calls:
-        if func_name in primary_form_funcs:
+        if func_name in module_funcs_set:
             # если подвызов уже добавлен в функции для переноса - пропускаем, что бы избежать зацикливания
             pass
         else:
-            if func_name.split('.')[0] != FORM_MANAGED:
+            if func_name[0:4] != "Form":
                 # не нужно добавлять в список процедуры и функций, которые уже есть в модуле
-                primary_form_funcs.add(func_name)
-            fill_primary_form_direct_call_chain(primary_form_funcs, func_subcalls, func_name)
+                module_funcs_set.add(func_name)
+            fill_direct_call_chain(module_funcs_set, func_subcalls, func_name)
     pass
 
 def get_secondary_module_config(primary_form_config, context):
@@ -305,16 +360,17 @@ def transfer_functions_to_main_form(context, move_config, key_word):
     # Описание основной управляемой формы
     main_form_struct = context.gl_form_props["Основная"]['struct']
 
-    copy_functions_to_form(main_form_struct,
+    copy_functions_to_form(APP_TYPE_MANAGED,
+                           main_form_struct,
                            move_config.primary_form_config.functions_to_move,
                            move_config.primary_form_config.export_functions,
                            context.gl_all_funcs_desc[APP_TYPE_MANAGED],
                            context.gl_common_modules_props)
 
-    handle_form_module_func_proc(main_form_struct, 'FormManaged.Основная', context.gl_common_modules_props)
+    handle_form_module_func_proc(main_form_struct, FORM_MANAGED + '.' + 'Основная', context.gl_common_modules_props)
 
     # Перенос в модуль основной формы глобальных переменных.
-    for gl_var_desc in context.gl_app_module["managed_app_struct"].global_vars_list:
+    for gl_var_desc in context.gl_app_module[APP_TYPE_MANAGED]['struct'].global_vars_list:
         if key_word.lower() in gl_var_desc.vars_list[0].name.lower():
             gl_var_desc_new = copy.deepcopy(gl_var_desc)
             gl_var_desc_new.directive = "&НаКлиенте"
@@ -323,19 +379,19 @@ def transfer_functions_to_main_form(context, move_config, key_word):
     # Создать в основной форме врапперы для клиент-серверных функций, к которым есть обращения из вспомогательных форм
     make_wrappers(move_config, main_form_struct)
 
-    custom_handlers.update_main_form_functions_transfer(context, move_config)
+    custom_handlers.update_primary_module_after_transfer(APP_TYPE_MANAGED, main_form_struct)
     pass
 
 def transfer_functions_to_secondary_form(context, move_config, key_word, func_name_get_main_module):
     """
     Перенос во вспомогательные формы.
-    @param gl_context:
-    @param gl_move_config:
+    @param context:
+    @param move_config:
     @return:
     """
     # список глобальных переменных, которые переносятся в основной модуль
     vars_list = set()
-    for gl_var_desc in context.gl_app_module["managed_app_struct"].global_vars_list:
+    for gl_var_desc in context.gl_app_module[APP_TYPE_ORDINARY]['struct'].global_vars_list:
         if key_word.lower() in gl_var_desc.vars_list[0].name.lower():
             vars_list.add(gl_var_desc.vars_list[0].name.lower())
 
@@ -359,7 +415,8 @@ def transfer_functions_to_secondary_form(context, move_config, key_word, func_na
         var_declaration = strct1c.VariablesDeclaration([var_desc], '&НаКлиенте')
         form_struct.global_vars_list.append(var_declaration)
 
-        copy_functions_to_form(form_struct,
+        copy_functions_to_form(APP_TYPE_MANAGED,
+                               form_struct,
                                funcs_to_move,
                                move_config.secondary_forms_config.export_functions.get(full_form_name, set()),
                                context.gl_all_funcs_desc[APP_TYPE_MANAGED],
@@ -397,11 +454,11 @@ def transfer_functions_to_secondary_form(context, move_config, key_word, func_na
     pass
 
 
-def copy_functions_to_form(form_struct, functions_to_move, export_functions, all_funcs_desc, common_modules_props):
+def copy_functions_to_form(app_type, module_struct, functions_to_move, export_functions, all_funcs_desc, common_modules_props):
     """
     Выполняет перенос процедур и функций отмеченных для переноса в форму.
     При копировании добавляется директива, а также убирается признак экспортности для локальных процедур и функций.
-    @param form_struct (strct1c.Module): описание модуля формы, в которую будет скопирована функция
+    @param module_struct (strct1c.Module): описание модуля, в который будет скопирована функция
     @param functions_to_move (set): набор функций для копирования в форму
     @param export_functions (set): набор процедур и функций, которые должны оставаться экспортными
     @param all_funcs_desc (set): описание всех процедур и функций
@@ -417,49 +474,34 @@ def copy_functions_to_form(form_struct, functions_to_move, export_functions, all
         strct1c.set_owner(func_proc_desc.body, func_proc_desc, True)
         strct1c.set_owner(func_proc_desc.vars_list, func_proc_desc, True)
 
-        parts = full_func_name.split(".")
-        # Директива зависит от контекста исполнения общего модуля:
-        #   клиент        - &НаКлиенте
-        #   сервер        - &НаСервереБезКонтекста
-        #   клиент-сервер - &НаКлиентеНаСервереБезКонтекста
-        module_properties = common_modules_props[parts[1]]
-        if module_properties['is_client']:
-            func_proc_desc.directive = "&НаКлиенте"
-        elif module_properties['is_server']:
-            func_proc_desc.directive = "&НаСервереБезКонтекста"
-        elif module_properties['is_client_server']:
-            func_proc_desc.directive = "&НаКлиентеНаСервереБезКонтекста"
-        else:
-            raise Exception("Не определен контекст вызова функции общего модуля: " + full_func_name)
-        if full_func_name in export_functions:
-            # нет обращения из вспомогательной формы, т.е. есть только в основной форме
-            func_proc_desc.is_export = True
-        else:
-            func_proc_desc.is_export = False
+        # Директива компиляции устанавливается только при переносе в модуль управляемой формы
+        if app_type == APP_TYPE_MANAGED:
+            parts = full_func_name.split(".")
+            # Директива зависит от контекста исполнения общего модуля:
+            #   клиент        - &НаКлиенте
+            #   сервер        - &НаСервереБезКонтекста
+            #   клиент-сервер - &НаКлиентеНаСервереБезКонтекста
+            module_properties = common_modules_props[parts[1]]
+            if module_properties['is_client']:
+                func_proc_desc.directive = "&НаКлиенте"
+            elif module_properties['is_server']:
+                func_proc_desc.directive = "&НаСервереБезКонтекста"
+            elif module_properties['is_client_server']:
+                func_proc_desc.directive = "&НаКлиентеНаСервереБезКонтекста"
+            else:
+                raise Exception("Не определен контекст вызова функции общего модуля: " + full_func_name)
+
+        # Установка признака экспортности
+        func_proc_desc.is_export = True if full_func_name in export_functions else False
+
         # собственно эта инструкция и выполняет перенос ;)
-        form_struct.proc_funcs_list.append(func_proc_desc)
+        module_struct.proc_funcs_list.append(func_proc_desc)
     pass
 
-def handle_form_module_func_proc(form_struct, full_form_name, gl_common_modules_props,
+def handle_form_module_func_proc(module_struct, full_form_name, gl_common_modules_props,
                                  replace_calls_to_primary_module = None,
                                  wrapper_calls = None,
                                  func_name_get_main_form_short = None):
-    def replace_common_module_calls(call_list):
-        """
-        Выполняет замену обращений к общим модулям на вызовы локальных процедур/функций.
-        Например:
-            "Subsys_ОбщегоНазначенияКлиентСервер.Проверить(..)" => "Проверить(..)"
-        @param call_list (list): список обращений к процедурам и функциям общих модулей для замены
-        @return: None
-        """
-        nonlocal gl_common_modules_props
-        for (call, func_name) in call_list:
-            parts = func_name.split(".")
-            if len(parts) == 2 and parts[0] in gl_common_modules_props:
-                if isinstance(call, strct1c.DottedExpression):
-                    call.properties_list.pop(0)
-                else:
-                    raise Exception("Вызов f() не обработан: " + func_name)
 
     def replace_calls_to_main_form(call_list, full_form_name):
         """
@@ -500,7 +542,7 @@ def handle_form_module_func_proc(form_struct, full_form_name, gl_common_modules_
                     result = True
         return result
 
-    for func_proc_desc in form_struct.proc_funcs_list:
+    for func_proc_desc in module_struct.proc_funcs_list:
         # Важно! Снова получаем список вызовов процедур и функций на основе нового описания функции.
         # Это нужно для того что бы заменить обращения к общим модулям на локальные вызовы
         # и при этом не трогать старое описание.
@@ -510,9 +552,26 @@ def handle_form_module_func_proc(form_struct, full_form_name, gl_common_modules_
         custom_handlers.handle_form_module_func_proc(func_proc_desc, sub_call_list)
 
         # заменяем обращения к общим модулям на обращение к локальным функциям
-        replace_common_module_calls(sub_call_list)
+        replace_common_module_calls(sub_call_list, gl_common_modules_props)
 
         if replace_calls_to_primary_module:
             # некоторые функции должны вызываться из основной формы
             replace_calls_to_main_form(sub_call_list, full_form_name)
     pass
+
+
+def replace_common_module_calls(call_list, gl_common_modules_props):
+    """
+    Выполняет замену обращений к общим модулям на вызовы локальных процедур/функций.
+    Например:
+        "Subsys_ОбщегоНазначенияКлиентСервер.Проверить(..)" => "Проверить(..)"
+    @param call_list (list): список обращений к процедурам и функциям общих модулей для замены
+    @return: None
+    """
+    for (call, func_name) in call_list:
+        parts = func_name.split(".")
+        if len(parts) == 2 and parts[0] in gl_common_modules_props:
+            if isinstance(call, strct1c.DottedExpression):
+                call.properties_list.pop(0)
+            else:
+                raise Exception("Вызов f() не обработан: " + func_name)

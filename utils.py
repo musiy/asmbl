@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 
 def get_statements_call_list(statements, obj_type = "function", filter = set()):
     """
@@ -16,5 +17,3 @@ def get_statements_call_list(statements, obj_type = "function", filter = set()):
         func_list = st.get_tokens_list(obj_type, filter)
         result += func_list
     return result
-
-
