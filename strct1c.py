@@ -83,9 +83,9 @@ class Module:
         replace_object(self.proc_funcs_list, obj_from, obj_to)
         replace_object(self.global_vars_list, obj_from, obj_to)
     def get_text(self):
-        text = get_op_list_text(self.global_vars_list) + "\n"
-        text += get_op_list_text(self.proc_funcs_list, False) + "\n"
-        text += get_op_list_text(self.statements_list) + "\n"
+        text = get_op_list_text(self.global_vars_list) + '\n'
+        text += get_op_list_text(self.proc_funcs_list, False) + '\n'
+        text += get_op_list_text(self.statements_list) + '\n'
         return text
 
 class VariablesDeclaration:
@@ -149,7 +149,9 @@ class Function:
         if self.body == obj_from:
             self.body = obj_to
     def get_text(self):
-        text = self.directive + "\n"
+        text = ''
+        if self.directive:
+            text += self.directive + "\n"
         text += ("Функция" if self.is_function else "Процедура") + " "
         text += self.name + "("
         not_first = False

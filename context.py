@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 
+from base_const import *
+
+import custom_handlers
 import dumped_modules_handler
 import parser1c
 import preproc1c
 import os
 import strct1c
 import utils
-from base_const import *
 
 class ContextType:
     gl_app_module = None
@@ -75,7 +77,7 @@ def get_form_properties(dump_folder, exclude_areas):
     @param exclude_areas (list): список областей, исключаемых из модулей при получении структуры
     @return (dict): структура со свойствами
     """
-    gl_form_props = dumped_modules_handler.get_forms_properties(dump_folder, 'iBank2')
+    gl_form_props = dumped_modules_handler.get_forms_properties(dump_folder, custom_handlers.PROCESSOR_NAME)
     for form_name, form_props in gl_form_props.items():
         context = "ТонкийКлиент" if form_props['is_managed'] else "ТолстыйКлиентОбычноеПриложение"
         # Выполнить препроцессинг, избавиться от областей
@@ -95,7 +97,7 @@ def get_common_modules_properties(dump_folder, exclude_areas):
     @param exclude_areas (list): список областей, исключаемых из модулей при получении структуры
     @return (dict): структура со свойствами
     """
-    gl_common_modules_props = dumped_modules_handler.get_modules_properties(dump_folder, 'iBank2')
+    gl_common_modules_props = dumped_modules_handler.get_modules_properties(dump_folder, custom_handlers.PROCESSOR_NAME)
     for module_name, module_props in gl_common_modules_props.items():
         try:
             # Разрешить препроцессор, избавиться от областей
@@ -130,7 +132,7 @@ def get_functions_description(gl_form_props, gl_common_modules_props, gl_ep_modu
 
     # Заполнение списка процедур и функций модуля обработки
     for proc_func in gl_ep_module['struct'].proc_funcs_list:
-        full_func_name = DATA_PROCESSOR + '.' + 'iBank2' + '.' + proc_func.name
+        full_func_name = DATA_PROCESSOR + '.' + custom_handlers.PROCESSOR_NAME + '.' + proc_func.name
         gl_all_funcs_desc[APP_TYPE_ORDINARY][full_func_name] = proc_func
 
     # Заполнение списка процедур и функций управляемых и обычных форм
@@ -153,8 +155,6 @@ def get_functions_description(gl_form_props, gl_common_modules_props, gl_ep_modu
         # заполнение списка процедур и функций общих модулей обычного приложения
         for proc_func in module_props['struct_ordinary'].proc_funcs_list:
             full_func_name = COMMON_MODULE + '.' + module_name + "." + proc_func.name
-            if full_func_name == 'CommonModule.iBank2_ОбщегоНазначения.ПолучитьЗначениеОбъектаОбработки':
-                a = 1
             gl_all_funcs_desc[APP_TYPE_ORDINARY][full_func_name] = proc_func
 
     return gl_all_funcs_desc
@@ -186,8 +186,8 @@ def get_functions_subcalls(gl_form_props, gl_common_modules_props, gl_ep_module,
     # заполняет gl_func_subcalls по процедурам и функциями модуля обработки
     for proc_func in gl_ep_module['struct'].proc_funcs_list:
         sub_calls_dict = get_sub_call_list(gl_all_funcs_desc[APP_TYPE_ORDINARY], all_funcs_desc_lower[APP_TYPE_ORDINARY],
-                                           proc_func.body.statements, DATA_PROCESSOR, "iBank2")
-        full_func_name = DATA_PROCESSOR + '.' + 'iBank2' + '.' + proc_func.name
+                                           proc_func.body.statements, DATA_PROCESSOR, custom_handlers.PROCESSOR_NAME)
+        full_func_name = DATA_PROCESSOR + '.' + custom_handlers.PROCESSOR_NAME + '.' + proc_func.name
         gl_func_subcalls[APP_TYPE_ORDINARY][full_func_name] = sub_calls_dict
 
     # цикл заполняет gl_func_subcalls по процедурам и функциями форм

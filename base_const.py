@@ -11,6 +11,14 @@ COMMON_MODULE = 'CommonModule'
 DATA_PROCESSOR = 'DataProcessor'
 
 MoveConfiguration = collections.namedtuple('MoveConfiguration', ['primary_form_config', 'secondary_forms_config'])
-PrimaryFormConf = collections.namedtuple('PrimaryFormConf', ['functions_to_move', 'export_functions'])
-SecondaryFuncs = collections.namedtuple('SecondaryFuncs', ['functions_to_move_dict', 'replace_calls_to_primary_module',
-                                        'wrapper_calls','export_functions'])
+
+PrimaryModuleConfiguration = collections.namedtuple('PrimaryModuleConfiguration',
+                                                    ['functions_to_move',
+                                                     'export_functions',
+                                                     'dp_module_chain'])
+
+SecondaryFormsConfiguration = collections.namedtuple('SecondaryFormsConfiguration',
+                                                     ['functions_to_move_dict',
+                                                      'replace_calls_to_primary_module',
+                                                      'wrapper_calls',
+                                                      'export_functions'])
