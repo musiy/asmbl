@@ -37,13 +37,16 @@ class Preprocessor1C:
         AREA_END = "#конецобласти"
 
         def codeline_is_area_begin(line):
-            return line.lstrip()[:len(AREA_BEGIN)].lower() == AREA_BEGIN or line.lstrip()[1:len(AREA_BEGIN)+1].lower() == AREA_BEGIN
+            if not line:
+                return
+            delta = 1 if ord('\ufeff') == ord(line[0]) else 0
+            return line.strip()[delta:len(AREA_BEGIN)+delta].lower() == AREA_BEGIN
 
         def codeline_is_area_end(line):
-            return line.strip().lower() == AREA_END
+            return line.strip()[0:len(AREA_END)].lower() == AREA_END
 
         def codeline_area_name(line):
-            return line.lstrip()[len(AREA_BEGIN):].strip().lower()
+            return line.strip().split()[1].lower()
 
         # перевод в нижний регистр
         areas_to_delete = {x.lower() for x in areas_to_delete}

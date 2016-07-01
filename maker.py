@@ -1,25 +1,27 @@
 # -*- coding: utf-8 -*-
 
 # не убирать - импортируются типы namedtuple, которые требуются модулю pickle
-from base_const import *
+from epfcomp.base_const import *
 
-import base_const
-import context
-import custom_handlers
-import move_funcs
+from epfcomp import context
+from epfcomp import custom_handlers
+from epfcomp import move_funcs
+from epfcomp import strct1c
+from epfcomp import obfuscate
+
 import os
 import pickle
-import strct1c
 
 # Использовать кеширование, в этом случае некоторые структуры данных будут выгружены на диск
 # Для того что бы в следующий раз не вычислять их
 CACHE_MODE_ON = True
 
-
 def init_context(dump_folder, exclude_areas):
+    log('Инициализация контекста')
     if CACHE_MODE_ON and os.path.isfile('init_stage.pickle'):
         with open('init_stage.pickle', 'rb') as f:
             gl_context = pickle.load(f)
+            log('Контекст загружен из кеша')
     else:
         gl_context = context.get_primary_context(dump_folder, exclude_areas)
         if CACHE_MODE_ON:
@@ -29,8 +31,10 @@ def init_context(dump_folder, exclude_areas):
 
 
 def do_transfer(context):
+    log('Подготовка конфигурации перемещения')
     if CACHE_MODE_ON and os.path.isfile('final_stage.pickle'):
         with open('final_stage.pickle', 'rb') as f:
+            log('Конфигурация перемещения загружена из файла')
             (context, move_config, dataproc_module_config) = pickle.load(f)
     else:
 
@@ -94,32 +98,58 @@ def prepare_dataprocessor_module_text(dataprocessor_module_struct, gl_dataproc_m
     return module_text
 
 
-def make(dump_folder, exclude_areas):
+def process_dump(dump_folder, exclude_areas, obfuscation_params, loc, debug=False):
+
+    log('Начало обработки текстов модулей')
 
     context = init_context(dump_folder, exclude_areas)
+
+    form_handlers_replecements = dict()
+    for form_name, form_props in context.gl_form_props.items():
+        form_handlers_replecements[form_name] = dict()
+        for func_desc in form_props['struct'].proc_funcs_list:
+            form_handlers_replecements[form_name][func_desc.name] = None
+
     context, move_config, dataproc_module_config = do_transfer(context)
+
+    if loc:
+        strct1c.localize(loc)
 
     # Получим код для модуля объекта обработки
     context.gl_ep_module['text'] = prepare_dataprocessor_module_text(context.gl_ep_module['struct'],
                                                                      dataproc_module_config)
-
     # Для модулей форм просто получим тексты подготовленные ранее
     for full_form_name, form_prop in context.gl_form_props.items():
         form_prop['text'] = strct1c.get_text(form_prop['struct'])
 
+    replacements_dict = None
+    if obfuscation_params:
+        replacements_dict = obfuscate.do_obfuscate(context, dataproc_module_config,
+                                                   obfuscation_params, form_handlers_replecements,
+                                                   debug)
+
     # Выполнить дополнение модуля объекта в кастомном модуле
-    custom_handlers.update_module_texts(context)
+    custom_handlers.update_context(context)
 
     def write_module_text(file_name, text):
-        file = open(os.path.join('dump.new', file_name), 'w', encoding='utf-8')
-        file.write(u'\ufeff')
+        file = open(os.path.join(dump_folder, file_name), 'w', encoding='utf-8')
+        file.write('\ufeff')
         file.write(text)
 
     write_module_text('Обработка.' + custom_handlers.PROCESSOR_NAME + '.МодульОбъекта.txt', context.gl_ep_module['text'])
 
     for form_name, form_props in context.gl_form_props.items():
         write_module_text(form_props['file_name'], form_props['text'])
-    pass
+
+    log('Конец обработки текстов модулей')
+
+    return context, form_handlers_replecements
 
 if __name__ == '__main__':
-    make("dump", ["DEBUG", "FILE_OPERATIONS_LOAD", "PRODUCT_UA", "DEBUG_FOR_CONF_DEBUGGING", "TEST"])
+
+    obf_exception = {'НачатьИнициализацию', 'Выбрать'}
+    obf_force = {'ВидЗапроса_ПолучитьСтатус', 'ДанныеАутентификации', 'ОписаниеПрофиля', 'ПравилаКонвертации'}
+
+    result = process_dump("dump", ["DEBUG", "FILE_OPERATIONS_LOAD", "PRODUCT_UA", "DEBUG_FOR_CONF_DEBUGGING", "TEST"],
+                          {'force': obf_force, 'except': obf_exception}, 'ru', True)
+    pass

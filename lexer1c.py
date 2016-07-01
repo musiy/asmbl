@@ -9,11 +9,6 @@ import ply.lex as lex
 import re
 import sys
 
-# Areas in 1C code to delete while lexing
-areas_to_delete = set()
-areas_to_delete.add('удалитьэтуобласть')
-areas_deletion_in_process = False
-
 states = (
    ('compstring','exclusive'),
 )
@@ -24,8 +19,6 @@ reserved = {
     '#иначеесли'        : 'DEF_ELSE_IF',
     '#иначе'            : 'DEF_ELSE',
     '#конецесли'        : 'DEF_END_IF',
-    '#область'          : 'AREA_BEGIN',
-    '#конецобласти'     : 'AREA_END',
     'если'              : 'IF',
     'тогда'             : 'THEN',
     'иначеесли'         : 'ELSE_IF',
@@ -118,31 +111,6 @@ t_DOT       = r'\.'
 t_LPAREN    = r'\('
 t_RPAREN    = r'\)'
 t_COLON     = r':'
-
-
-def t_areas(t):
-    r'\#(область|конецобласти)'
-    global areas_deletion_in_process
-    if areas_deletion_in_process:
-        if t.value.lower() == '#область':
-            t.type = 'AREA_BEGIN'
-        else:
-            t.type = 'AREA_END'
-        return t
-    if t.value.lower() == '#область':
-        token = t.lexer.token()
-        if token.value.lower() in areas_to_delete:
-            areas_deletion_in_process = True
-            area_level = 1
-            while token.type != 'AREA_END' or area_level > 0:
-                token = t.lexer.token()
-                if token.type == 'AREA_BEGIN':
-                    area_level +=1
-                elif token.type == 'AREA_END' and area_level > 0:
-                    area_level -= 1
-            areas_deletion_in_process = False
-    pass
-
 
 def t_preprocessor(t):
     r'\#[a-zA-Zа-яА-Я_][a-zA-Zа-яА-Я_0-9]*'

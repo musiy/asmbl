@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 
-from base_const import *
+from epfcomp.base_const import *
 
-import custom_handlers
-import dumped_modules_handler
-import parser1c
-import preproc1c
+from epfcomp import custom_handlers
+from epfcomp import parser1c
+from epfcomp import preproc1c
+from epfcomp import strct1c
+from epfcomp import utils
 import os
-import strct1c
-import utils
 
 class ContextType:
     gl_app_module = None
@@ -25,6 +24,7 @@ def get_application_module_props(dump_folder, exclude_areas):
     @param exclude_areas (list): список областей, исключаемых из модулей при получении структуры
     @return (dict): структура со свойствами
     """
+    log('Получение структуры модуля управляемого и модуля обычного приложения')
     gl_app_module = dict()
     gl_app_module[APP_TYPE_MANAGED] = dict()
     gl_app_module[APP_TYPE_ORDINARY] = dict()
@@ -49,7 +49,7 @@ def get_application_module_props(dump_folder, exclude_areas):
 
 
 def get_processor_module_props(dump_folder, exclude_areas):
-
+    log('Получение структуры модуля объекта обработки')
     processor_file_name = ''
     dump_files_list = [f for f in os.listdir(dump_folder) if os.path.isfile(os.path.join(dump_folder, f))]
     for full_file_name in dump_files_list:
@@ -77,13 +77,14 @@ def get_form_properties(dump_folder, exclude_areas):
     @param exclude_areas (list): список областей, исключаемых из модулей при получении структуры
     @return (dict): структура со свойствами
     """
-    gl_form_props = dumped_modules_handler.get_forms_properties(dump_folder, custom_handlers.PROCESSOR_NAME)
+    log('Получение структуры и свойств модулей форм обработки')
+    gl_form_props = utils.load_forms(dump_folder, custom_handlers.PROCESSOR_NAME)
     for form_name, form_props in gl_form_props.items():
         context = "ТонкийКлиент" if form_props['is_managed'] else "ТолстыйКлиентОбычноеПриложение"
         # Выполнить препроцессинг, избавиться от областей
         preproc = preproc1c.Preprocessor1C(form_props['text_origin'])
-        new_text = preproc.execute(context, exclude_areas, ["НаКлиенте"])
-        new_text = add_semicolon_after_preproc(new_text)
+        new_text = preproc.execute(context, exclude_areas, ['НаКлиенте', 'Сервер'])
+        new_text = utils.add_semicolon_after_preproc(new_text)
         form_props['text'] = new_text
         # Получить синтаксическую структуру модуля
         form_props['struct'] = parser1c.parser.parse(new_text)
@@ -97,13 +98,14 @@ def get_common_modules_properties(dump_folder, exclude_areas):
     @param exclude_areas (list): список областей, исключаемых из модулей при получении структуры
     @return (dict): структура со свойствами
     """
-    gl_common_modules_props = dumped_modules_handler.get_modules_properties(dump_folder, custom_handlers.PROCESSOR_NAME)
+    log('Получение структуры и свойств общих модулей')
+    gl_common_modules_props = utils.load_common_modules(dump_folder, custom_handlers.PROCESSOR_NAME)
     for module_name, module_props in gl_common_modules_props.items():
         try:
             # Разрешить препроцессор, избавиться от областей
             preproc = preproc1c.Preprocessor1C(gl_common_modules_props[module_name]['text_origin'])
             module_props['text_managed'] = preproc.execute("ТонкийКлиент", exclude_areas, ['НаКлиенте', 'Сервер'])
-            module_props['text_managed'] = add_semicolon_after_preproc(module_props['text_managed'])
+            module_props['text_managed'] = utils.add_semicolon_after_preproc(module_props['text_managed'])
             module_props['struct_managed'] = parser1c.parser.parse(module_props['text_managed'])
 
             # Разрешить препроцессор, избавиться от областей
@@ -126,6 +128,7 @@ def get_functions_description(gl_form_props, gl_common_modules_props, gl_ep_modu
                'FormManaged.Основная.ПриОткрытии': <strct1c.Function object at 0x03F64C10>
                'DataProcessor.EPName.СведенияОВнешнейОбработке': <strct1c.Function object at 0x03F5CF10>
     """
+    log('Получение списка всех процедур и функций')
     gl_all_funcs_desc = dict()
     gl_all_funcs_desc[APP_TYPE_MANAGED] = dict()
     gl_all_funcs_desc[APP_TYPE_ORDINARY] = dict()
@@ -173,6 +176,7 @@ def get_functions_subcalls(gl_form_props, gl_common_modules_props, gl_ep_module,
     @param gl_all_funcs_desc (dict): ссылки описания всех функций
     @return:
     """
+    log('Вычисление вызовов в процедурах и функциях')
     gl_func_subcalls = dict()
     gl_func_subcalls[APP_TYPE_MANAGED] = dict()
     gl_func_subcalls[APP_TYPE_ORDINARY] = dict()
@@ -226,6 +230,7 @@ def update_local_calls_to_common(gl_func_subcalls):
     @param gl_func_subcalls (dict): список вызовов функций для каждой функции приложения
     @return None:
     """
+    log('Замена обращений к локальным процедурам и функциям на обращения через общий модуль')
     for app_type, func_calls in gl_func_subcalls.items():
         for full_func_name, sub_calls_dict in func_calls.items():
             for called_func_name, sub_calls_list in sub_calls_dict.items():
@@ -243,6 +248,8 @@ def update_local_calls_to_common(gl_func_subcalls):
                             sub_calls_list[index] = new_call
 
 def get_primary_context(dump_folder, exclude_areas):
+
+    log('Получение контекста')
 
     context = ContextType()
     # Получение текстов и структуры модулей обычного и управляемого приложения
@@ -270,29 +277,8 @@ def get_primary_context(dump_folder, exclude_areas):
 
     # Изменить все локальные вызовы на обращение через общий модуль
     update_local_calls_to_common(context.gl_func_subcalls)
+
     return context
-
-def add_semicolon_after_preproc(module_text):
-    """
-     Вставка символа точки с запятой после инструкции препроцессора #КонецЕсли.
-     Это нужно для дальнейшей успешной загрузки модуля в синтаксический процессор.
-     В сущности инструкции препроцессора не являются инструкциями, поэтому
-     не завершаются точкой с запятой в коде 1С. Но для удобства обработки кода
-     с использованием синтаксического процессора 1Сика они считаются инструкциями,
-     такими же как if .. else .. endif, и поэтому должны оканчиваться точкой с запятой.
-    @param module_text (str): текст содержащий инструкции препроцессора
-    @return (str): новый текст, в котором после каждой завершающей инструкции препроцессора
-                   добавлена точка с запятой на новой строке
-    """
-    pos = 0
-    while True:
-        pos = module_text.find('#КонецЕсли', pos)
-        if pos == -1:
-            break
-        module_text = module_text[0:pos + 10] + '\n;' + module_text[pos + 10:]
-        pos += 10 + 3;
-    return module_text
-
 
 def get_sub_call_list(all_funcs_set, all_funcs_set_in_lower, statements, module_type, module_name):
     '''

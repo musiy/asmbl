@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 
-from base_const import *
+from epfcomp.base_const import *
+from epfcomp import  custom_handlers
+from epfcomp import  strct1c
+from epfcomp import  utils
 import copy
-import custom_handlers
-import strct1c
-import utils
 
 def get_move_functions_configuration_ordinary_app(context):
+
+    log('Вычисление конфигурации перемещения для обычного приложения')
 
     dataproc_module_config = PrimaryModuleConfiguration(set(), set(), set())
 
@@ -48,6 +50,8 @@ def get_move_functions_configuration_ordinary_app(context):
 
 def transfer_functions_to_dataprocessor_module(context, dataproc_module_config):
 
+    log('Перемещение процедур и функций в модуль объекта обработки')
+
     # Описание модуля обработки
     dataprocessor_module_struct = context.gl_ep_module['struct']
 
@@ -85,6 +89,8 @@ def transfer_functions_to_dataprocessor_module(context, dataproc_module_config):
 
 
 def get_move_functions_configuration(context):
+
+    log('Вычисление конфигурации перемещений для управляемых форм')
 
     primary_form_config = get_functions_to_move(context)
 
@@ -378,6 +384,7 @@ def transfer_functions_to_main_form(context, move_config, key_word):
     @return:
     """
 
+    log('Перемещение функций в основную управляемую форму')
     # Описание основной управляемой формы
     main_form_struct = context.gl_form_props["Основная"]['struct']
 
@@ -411,6 +418,9 @@ def transfer_functions_to_secondary_form(context, move_config):
     @return:
     """
     # список глобальных переменных, которые переносятся в основной модуль
+
+    log('Перемещение функций во вспомогательные управляемые формы')
+
     vars_list = set()
     for gl_var_desc in context.gl_app_module[APP_TYPE_ORDINARY]['struct'].global_vars_list:
         if custom_handlers.PROCESSOR_NAME.lower() in gl_var_desc.vars_list[0].name.lower():
@@ -456,10 +466,6 @@ def transfer_functions_to_secondary_form(context, move_config):
             id_call_list += utils.get_statements_call_list(func_proc_desc.body.statements, obj_type="id", filter=vars_list)
 
         for id_call, alias in id_call_list:
-            #сейчас нельзя выполнить замену, т.к. нельзя найти владельца по выражению
-            #что бы найти владельца нужно принудительно делать set_owner после deepcopy.
-            # в функции set_owner добавить параметр recursive что бы заполнить владельца
-            # по всей структуре вызова
             if isinstance(id_call, strct1c.Identifier):
                 new_call = copy.deepcopy(global_vars_replace_call)
                 new_call.properties_list[1] = id_call
@@ -555,13 +561,6 @@ def handle_form_module_func_proc(module_struct, full_form_name, gl_common_module
                     if name in wrapper_calls__short_names:
                         call.properties_list[0].set_name(name+"_wrapper")
                     call.properties_list.insert(0, get_main_owner_func_call())
-                    result = True
-            else:
-                if call.get_name() in replace_calls_to_primary_module_short_names:
-                    # todo по хорошему нужно изменить сам объект вызова через владельца
-                    if call.get_name() in wrapper_calls__short_names:
-                        call.set_name(call.get_name()+"_wrapper")
-                    call.name = func_name_get_main_form_short + "(ЭтотОбъект)." + call.name
                     result = True
         return result
 

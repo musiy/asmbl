@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from base_const import *
-import locsettings
-import move_funcs
-import strct1c
-import utils
+from epfcomp.base_const import *
+from epfcomp import locsettings
+from epfcomp import move_funcs
+from epfcomp import strct1c
+from epfcomp import utils
+import os.path
 
 PROCESSOR_NAME = 'iBank2'
 
@@ -206,17 +207,18 @@ def update_primary_module_after_transfer(app_mode, module_struct):
             rec[0].id = replacements[id_name.lower()]
     pass
 
-def update_module_texts(context):
+def update_context(context):
 
-    # выполнение локализации
-    loc_dict = locsettings.get_localization_settings('ru')
-    for form_name, form_props in context.gl_form_props.items():
-       module_text = form_props['text']
-       for loc_key, loc_val in loc_dict.items():
-           module_text = module_text.replace("{"+loc_key+"}", loc_val)
-       form_props['text'] = module_text
+    if os.path.isfile('Localization_3_5_RU.xml'):
+        # выполнение локализации
+        loc_dict = locsettings.get_localization_settings('ru')
+        for form_name, form_props in context.gl_form_props.items():
+           module_text = form_props['text']
+           for loc_key, loc_val in loc_dict.items():
+               module_text = module_text.replace("{"+loc_key+"}", loc_val)
+           form_props['text'] = module_text
 
-    module_text = context.gl_ep_module['text']
-    for loc_key, loc_val in loc_dict.items():
-        module_text = module_text.replace("{" + loc_key + "}", loc_val)
-    context.gl_ep_module['text'] = module_text
+        module_text = context.gl_ep_module['text']
+        for loc_key, loc_val in loc_dict.items():
+            module_text = module_text.replace("{" + loc_key + "}", loc_val)
+        context.gl_ep_module['text'] = module_text

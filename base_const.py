@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import collections
+import logging
+from os import getlogin
+from platform import node as comp_name
 
 APP_TYPE_MANAGED = 'managed'
 APP_TYPE_ORDINARY = 'ordinary'
@@ -22,3 +25,23 @@ SecondaryFormsConfiguration = collections.namedtuple('SecondaryFormsConfiguratio
                                                       'replace_calls_to_primary_module',
                                                       'wrapper_calls',
                                                       'export_functions'])
+
+__ENV_DESC = { 'user': getlogin(), 'comp': comp_name() }
+__LOGGER = logging.getLogger('epfcomp')
+
+def __init_logging():
+    formatter = logging.Formatter('%(asctime)s %(comp)s(%(user)s)- %(levelname)s: %(message)s')
+    # Вывод данных логирования в консоль
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    ch.setFormatter(formatter)
+    __LOGGER.addHandler(ch)
+    __LOGGER.setLevel(logging.INFO)
+
+def log(msg, *args):
+    __LOGGER.info(msg, *args, extra=__ENV_DESC)
+
+__init_logging()
+
+if __name__ == '__main__':
+    log('Пример сообщения логирования')

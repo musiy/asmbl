@@ -1,28 +1,62 @@
 # -*- coding: utf-8 -*-
 
-_gl_indend = 0
+import re
+
+# Localization
+__gl_str_loc = None
+def set_str_locale(loc):
+    global __gl_str_loc
+    __gl_str_loc = loc
+def get_str_locale():
+    return __gl_str_loc
+
+def localize(loc):
+    to_delete = set()
+    for child, parent in __gl_owners.items():
+        if not isinstance(child, Strings):
+            continue
+        if isinstance(parent, FuncCall) and parent.name.lower() == 'нстр':
+            nstr_owner = get_owner(parent)
+            nstr_owner.replace_obj(parent, child)
+            to_delete.add(parent)
+            child.value[0] = trunc_loc(child.value[0], loc)
+    for subject in to_delete:
+        del_owner_link(subject)
+    pass
+
+def trunc_loc(text, loc):
+    template = r"\s*{loc}\s*=\s*'[^']*'".replace('{loc}', loc)
+    regex = re.compile(template)
+    match = regex.search(text, 0)
+    if match:
+        text = text[match.start():match.end()]
+        text = text[text.find("'")+1:-1]
+        return text
+    return text
+
+# Getting text
+__gl_indend = 0
 
 def set_indent(indent):
-    global _gl_indend
-    _gl_indend = indent
+    global __gl_indend
+    __gl_indend = indent
 
 def get_indent_spaces():
-    global _gl_indend
-    return _gl_indend*" "
+    return __gl_indend * ' '
 
 def incrase_indent():
-    global _gl_indend
-    _gl_indend += 4
+    global __gl_indend
+    __gl_indend += 4
 
 def decrase_indent():
-    global _gl_indend
-    _gl_indend -= 4
+    global __gl_indend
+    __gl_indend -= 4
 
 def get_op_list_text(op_list, add_semicolon = True):
-    global _gl_indend
+    global __gl_indend
     text = ""
     for op in op_list:
-        text += _gl_indend*" " + op.get_text()
+        text += get_indent_spaces() + op.get_text()
         if add_semicolon and not isinstance(op, PreprocIfElseStatement):
             text += ";"
         text += "\n"
@@ -39,21 +73,25 @@ def get_tokens_list(struct_list, obj_type, filter):
     return func_list
 
 # Глобальная переменная, содержащая соответствия объекта его владельцу
-gl_owners = dict()
+__gl_owners = dict()
 
 def get_owner(subject):
-    return gl_owners.get(subject, None)
+    return __gl_owners.get(subject, None)
+
+def del_owner_link(subject):
+    global __gl_owners
+    del __gl_owners[subject]
 
 def set_owner(subject, owner, recursive = False):
     if not subject or isinstance(subject, str) or isinstance(subject, int):
         return
     if isinstance(subject, list):
         for x in subject:
-            gl_owners[x] = owner
+            __gl_owners[x] = owner
             if recursive:
                 x.set_owner(recursive)
     else:
-        gl_owners[subject] = owner
+        __gl_owners[subject] = owner
         if recursive:
             subject.set_owner(recursive)
 
@@ -62,8 +100,6 @@ def replace_object(subject_list, obj_from, obj_to):
     for i in range(len(subject_list)):
         if subject_list[i] == obj_from:
             subject_list[i] = obj_to
-
-#def replace_class_object_field(self, )
 
 class Module:
     global_vars_list = None
@@ -895,13 +931,14 @@ class Strings (SimpleType):
     def apnd(self, value):
         self.value += [value]
     def get_text(self):
-        global _gl_indend
+        return self.format_1c_str(self.value[0])
+    def format_1c_str(self, origin_text):
         text = '"'
-        for ch in self.value[0]:
+        for ch in origin_text:
             if ch == '"':
                 text += '""'
             elif ch == '\n':
-                text += ch + (' '*_gl_indend) + "|"
+                text += ch + get_indent_spaces() + "|"
             else:
                 text += ch
         text += '"'

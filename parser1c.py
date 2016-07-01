@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import ply.yacc as yacc
-from lexer1c import tokens
-import strct1c
+from epfcomp import strct1c
+from epfcomp.lexer1c import *
 
 precedence = (
                ('left', 'OR', 'AND'),
@@ -508,6 +508,8 @@ parser = yacc.yacc()
 if __name__ == '__main__':
     data = open("samples/sample.1c", encoding='utf-8').read()
     result = parser.parse(data)
-    strct1c.get_tokens_list(result.statements_list, obj_type="function", filter = set())
+    strct1c.localize('ru')
+    strct1c.get_tokens_list(result.statements_list, obj_type="function", filter=set())
+    strct1c.set_str_locale('ru')
     print(strct1c.get_text(result))
     pass
