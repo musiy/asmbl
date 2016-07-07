@@ -26,7 +26,12 @@ SecondaryFormsConfiguration = collections.namedtuple('SecondaryFormsConfiguratio
                                                       'wrapper_calls',
                                                       'export_functions'])
 
-__ENV_DESC = { 'user': getlogin(), 'comp': comp_name() }
+BuildParams = collections.namedtuple('ProcessingParams', ['object_name',
+                                                          'main_managed_form',
+                                                          'managed_forms',
+                                                          'ordinary_forms'])
+
+__ENV_DESC = {'user': getlogin(), 'comp': comp_name()}
 __LOGGER = logging.getLogger('epfcomp')
 
 def __init_logging():

@@ -7,8 +7,6 @@ from epfcomp import strct1c
 from epfcomp import utils
 import os.path
 
-PROCESSOR_NAME = 'iBank2'
-
 def get_main_form_func_name():
     '''
     Для обращения к процедурам и функциям основной формы в модуле вспомогательной формы должна присутствовать

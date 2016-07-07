@@ -2,7 +2,6 @@ from epfcomp.base_const import *
 from random import random
 import re
 
-
 # адресное пространство идентификаторов обфускации - 0..999999, т.е. идентификаторы i0-i999999
 MAX_ID_COUNT = 999999
 
@@ -28,6 +27,7 @@ def do_obfuscate(context, dataproc_module_config, params, form_handlers_replacem
     # заполнение идентификаторов замен названиями процедур и функций модуля объекта
     for func_desc in context.gl_ep_module['struct'].proc_funcs_list:
         overall_ids_list.add(func_desc.name)
+
     # функции составляющие изначальную прямую цепочку вызова из модуля объекта были вынесены из модуля при формировании текста модуля
     for full_func_name in dataproc_module_config.dp_module_chain:
         overall_ids_list.add(full_func_name.split('.')[2])
@@ -40,7 +40,7 @@ def do_obfuscate(context, dataproc_module_config, params, form_handlers_replacem
     # заполнение идентификаторов замен названиями процедур и функций модулей форм
     for form_name, forp_prop in context.gl_form_props.items():
         for func_desc in forp_prop['struct'].proc_funcs_list:
-            if debug and func_desc.name in form_handlers_replacements[form_name]:
+            if func_desc.name in form_handlers_replacements[form_name]:
                 continue
             overall_ids_list.add(func_desc.name)
 
@@ -91,4 +91,3 @@ def replace_ids(text, replacements_dict):
         pos = match.end() - (len(old_value) - len(new_value))
         match = regex.search(text, pos)
     return text
-

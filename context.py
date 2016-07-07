@@ -48,21 +48,10 @@ def get_application_module_props(dump_folder, exclude_areas):
     return gl_app_module
 
 
-def get_processor_module_props(dump_folder, exclude_areas):
+def get_processor_module_props(dump_folder, object_name, exclude_areas):
     log('Получение структуры модуля объекта обработки')
-    processor_file_name = ''
-    dump_files_list = [f for f in os.listdir(dump_folder) if os.path.isfile(os.path.join(dump_folder, f))]
-    for full_file_name in dump_files_list:
-        if full_file_name.split('.')[2] == 'МодульОбъекта':
-            processor_file_name = full_file_name
-
-    if not processor_file_name:
-        # todo может быть такое, что модуль объекта обработки пустой и необходимо будет его создать
-        # при этом нужно будет знать полное имя файла, а значит и имя обрабоки.
-        # Пример имени файла модуля: Обработка.ExtProc.МодульОбъекта.txt
-        raise Exception("Не найден модуль объекта обработки")
-
     module_props = dict()
+    processor_file_name = 'Обработка.' + object_name + '.МодульОбъекта.txt'
     module_props['text_origin'] = open(os.path.join(dump_folder, processor_file_name), encoding='utf-8').read()
     preproc = preproc1c.Preprocessor1C(module_props['text_origin'])
     text = preproc.execute('ТолстыйКлиентОбычноеПриложение', exclude_areas)
@@ -70,7 +59,7 @@ def get_processor_module_props(dump_folder, exclude_areas):
     module_props['struct'] = parser1c.parser.parse(text)
     return module_props
 
-def get_form_properties(dump_folder, exclude_areas):
+def get_form_properties(dump_folder, build_params, exclude_areas):
     """
     Получает тексты и структуру модулей форм.
     @param dump_folder (str): каталог с выгруженными текстами модулей
@@ -78,7 +67,7 @@ def get_form_properties(dump_folder, exclude_areas):
     @return (dict): структура со свойствами
     """
     log('Получение структуры и свойств модулей форм обработки')
-    gl_form_props = utils.load_forms(dump_folder, custom_handlers.PROCESSOR_NAME)
+    gl_form_props = utils.load_forms(dump_folder, build_params)
     for form_name, form_props in gl_form_props.items():
         context = "ТонкийКлиент" if form_props['is_managed'] else "ТолстыйКлиентОбычноеПриложение"
         # Выполнить препроцессинг, избавиться от областей
@@ -91,7 +80,7 @@ def get_form_properties(dump_folder, exclude_areas):
     return gl_form_props
 
 
-def get_common_modules_properties(dump_folder, exclude_areas):
+def get_common_modules_properties(dump_folder, build_params, exclude_areas):
     """
     Получает тексты и структуру общих модулей.
     @param dump_folder (str): каталог с выгруженными текстами модулей
@@ -99,7 +88,7 @@ def get_common_modules_properties(dump_folder, exclude_areas):
     @return (dict): структура со свойствами
     """
     log('Получение структуры и свойств общих модулей')
-    gl_common_modules_props = utils.load_common_modules(dump_folder, custom_handlers.PROCESSOR_NAME)
+    gl_common_modules_props = utils.load_common_modules(dump_folder, build_params)
     for module_name, module_props in gl_common_modules_props.items():
         try:
             # Разрешить препроцессор, избавиться от областей
@@ -117,7 +106,7 @@ def get_common_modules_properties(dump_folder, exclude_areas):
     return gl_common_modules_props
 
 
-def get_functions_description(gl_form_props, gl_common_modules_props, gl_ep_module):
+def get_functions_description(gl_form_props, gl_common_modules_props, gl_ep_module, object_name):
     """
      Формирование общего списка процедур и функций во всех общих модулях и модулях форм.
      В соотвествие имени каждой процедуры/функции ставится её описание типа strct1c.Function.
@@ -135,7 +124,7 @@ def get_functions_description(gl_form_props, gl_common_modules_props, gl_ep_modu
 
     # Заполнение списка процедур и функций модуля обработки
     for proc_func in gl_ep_module['struct'].proc_funcs_list:
-        full_func_name = DATA_PROCESSOR + '.' + custom_handlers.PROCESSOR_NAME + '.' + proc_func.name
+        full_func_name = DATA_PROCESSOR + '.' + object_name + '.' + proc_func.name
         gl_all_funcs_desc[APP_TYPE_ORDINARY][full_func_name] = proc_func
 
     # Заполнение списка процедур и функций управляемых и обычных форм
@@ -163,7 +152,7 @@ def get_functions_description(gl_form_props, gl_common_modules_props, gl_ep_modu
     return gl_all_funcs_desc
 
 
-def get_functions_subcalls(gl_form_props, gl_common_modules_props, gl_ep_module, gl_all_funcs_desc):
+def get_functions_subcalls(gl_form_props, gl_common_modules_props, gl_ep_module, gl_all_funcs_desc, object_name):
     """
     Формирование списка вызовов для каждой функции каждой формы и модуля.
     Эти списки будут использованы на следующем этапе для формирования модулей форм.
@@ -190,8 +179,8 @@ def get_functions_subcalls(gl_form_props, gl_common_modules_props, gl_ep_module,
     # заполняет gl_func_subcalls по процедурам и функциями модуля обработки
     for proc_func in gl_ep_module['struct'].proc_funcs_list:
         sub_calls_dict = get_sub_call_list(gl_all_funcs_desc[APP_TYPE_ORDINARY], all_funcs_desc_lower[APP_TYPE_ORDINARY],
-                                           proc_func.body.statements, DATA_PROCESSOR, custom_handlers.PROCESSOR_NAME)
-        full_func_name = DATA_PROCESSOR + '.' + custom_handlers.PROCESSOR_NAME + '.' + proc_func.name
+                                           proc_func.body.statements, DATA_PROCESSOR, object_name)
+        full_func_name = DATA_PROCESSOR + '.' + object_name + '.' + proc_func.name
         gl_func_subcalls[APP_TYPE_ORDINARY][full_func_name] = sub_calls_dict
 
     # цикл заполняет gl_func_subcalls по процедурам и функциями форм
@@ -246,8 +235,9 @@ def update_local_calls_to_common(gl_func_subcalls):
                             strct1c.set_owner(sub_call, new_call)
                             owner.replace_obj(sub_call, new_call)
                             sub_calls_list[index] = new_call
+    pass
 
-def get_primary_context(dump_folder, exclude_areas):
+def get_primary_context(dump_folder, build_params, exclude_areas):
 
     log('Получение контекста')
 
@@ -256,24 +246,26 @@ def get_primary_context(dump_folder, exclude_areas):
     context.gl_app_module = get_application_module_props(dump_folder, exclude_areas)
 
     # Получение текстов и структуры модуля обработки
-    context.gl_ep_module = get_processor_module_props(dump_folder, exclude_areas)
+    context.gl_ep_module = get_processor_module_props(dump_folder, build_params.object_name, exclude_areas)
 
     # Получение текстов и структуры модулей форм
-    context.gl_form_props = get_form_properties(dump_folder, exclude_areas)
+    context.gl_form_props = get_form_properties(dump_folder, build_params, exclude_areas)
 
     # Получение текстов и структуры общих модулей
-    context.gl_common_modules_props = get_common_modules_properties(dump_folder, exclude_areas)
+    context.gl_common_modules_props = get_common_modules_properties(dump_folder, build_params, exclude_areas)
 
     # Формирование общего списка всех процедур и функций во всех модулях
     context.gl_all_funcs_desc = get_functions_description(context.gl_form_props,
                                                           context.gl_common_modules_props,
-                                                          context.gl_ep_module)
+                                                          context.gl_ep_module,
+                                                          build_params.object_name)
 
     # Содержит список вызовов для каждой процедуры/функции во всех общих модулях и модулях форм
     context.gl_func_subcalls = get_functions_subcalls(context.gl_form_props,
                                                       context.gl_common_modules_props,
                                                       context.gl_ep_module,
-                                                      context.gl_all_funcs_desc)
+                                                      context.gl_all_funcs_desc,
+                                                      build_params.object_name)
 
     # Изменить все локальные вызовы на обращение через общий модуль
     update_local_calls_to_common(context.gl_func_subcalls)
@@ -288,7 +280,6 @@ def get_sub_call_list(all_funcs_set, all_funcs_set_in_lower, statements, module_
     @param module_name (str): имя общего модуля или формы
     @return (set): список вызываемый функций с полным путем к ним: CommonModule.<имя модуля>.<имя процедуры/функции>
     '''
-
     result = dict()
     # Возвращаются все вызовы вида: Ф(..) или ID.Ф(..).
     # Среди них могут быть встроенные функции и вызовы функий от объектов, например:
